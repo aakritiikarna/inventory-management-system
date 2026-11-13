@@ -1,15 +1,6 @@
-import axios from "axios";
-
-const API = "http://localhost:3000/api/dashboard";
+import API from "../api/api";
 
 export const getDashboardStats = async () => {
-  const token = localStorage.getItem("pos-token");
-
-  const response = await axios.get(`${API}/stats`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
+  const response = await API.get("/dashboard/stats");
   return response.data;
 };

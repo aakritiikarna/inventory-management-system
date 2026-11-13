@@ -8,10 +8,12 @@ import {
   deleteCategory,
 } from "../controllers/categoryController.js";
 
+import authMiddleware from "../middleware/authMiddleware.js";
+import requireRole from "../middleware/roleMiddleware.js";
+
 const router = express.Router();
 
-// CREATE CATEGORY
-router.post("/", createCategory);
+router.use(authMiddleware);
 
 // GET ALL CATEGORIES
 router.get("/", getCategories);
@@ -19,12 +21,13 @@ router.get("/", getCategories);
 // GET SINGLE CATEGORY
 router.get("/:id", getCategoryById);
 
-// UPDATE CATEGORY
-router.put("/:id", updateCategory);
+// CREATE CATEGORY (admin only)
+router.post("/", requireRole("admin"), createCategory);
 
-// DELETE CATEGORY
-router.delete("/:id", deleteCategory);
+// UPDATE CATEGORY (admin only)
+router.put("/:id", requireRole("admin"), updateCategory);
 
-// IMPORTANT:
-// Export router as DEFAULT
+// DELETE CATEGORY (admin only)
+router.delete("/:id", requireRole("admin"), deleteCategory);
+
 export default router;

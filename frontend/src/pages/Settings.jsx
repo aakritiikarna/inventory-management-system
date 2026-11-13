@@ -20,9 +20,74 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 import { useTheme } from "../context/ThemeContext";
+import { useCurrency } from "../context/CurrencyContext";
+import { useAuth } from "../context/AuthContext";
+import { CURRENCY_LIST } from "../data/currencyConfig";
+
+const Toggle = ({ enabled, onClick }) => (
+  <motion.button
+    type="button"
+    aria-pressed={enabled}
+    whileTap={{ scale: 0.92 }}
+    onClick={onClick}
+    className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${
+      enabled ? "bg-blue-600" : "bg-gray-300 dark:bg-slate-600"
+    }`}
+  >
+    <motion.div
+      animate={{ x: enabled ? 28 : 4 }}
+      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+      className="absolute top-1 w-5 h-5 rounded-full bg-white shadow-md"
+    />
+  </motion.button>
+);
+
+const SettingRow = ({
+  icon,
+  iconBg,
+  title,
+  description,
+  enabled,
+  settingName,
+  toggleSetting,
+}) => (
+  <motion.div
+    whileHover={{ x: 4, scale: 1.01 }}
+    className="flex items-center justify-between gap-4 p-5 rounded-xl bg-gray-50 dark:bg-slate-800/70 hover:shadow-md transition-all duration-300"
+  >
+    <div className="flex items-center gap-4">
+      <motion.div
+        whileHover={{ scale: 1.1, rotate: 5 }}
+        className={`w-11 h-11 rounded-xl flex items-center justify-center ${iconBg}`}
+      >
+        {icon}
+      </motion.div>
+      <div>
+        <h3 className="font-semibold text-gray-800 dark:text-white">{title}</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          {description}
+        </p>
+      </div>
+    </div>
+    <Toggle
+      enabled={enabled}
+      onClick={() => toggleSetting(settingName)}
+    />
+  </motion.div>
+);
 
 const Settings = () => {
   const { darkMode, toggleTheme } = useTheme();
+  // Currency is app-wide state (every screen that shows money needs it),
+  // the same way theme is — so it lives in its own context instead of
+  // this page's local `settings` object, which previously made the
+  // dropdown below purely decorative (it wrote to localStorage, but
+  // nothing ever read that key back out).
+  const { currencyCode, setCurrencyCode } = useCurrency();
+  // Low-stock alerts are an admin-only feature (staff never receive them),
+  // so the preference is only offered to admins.
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   const [saved, setSaved] = useState(false);
 
@@ -33,7 +98,6 @@ const Settings = () => {
     soundEffects: true,
     autoSave: true,
     language: "English",
-    currency: "USD",
   };
 
   const [settings, setSettings] = useState(() => {
@@ -117,91 +181,6 @@ const Settings = () => {
     setTimeout(() => {
       setSaved(false);
     }, 2500);
-  };
-
-  // ==========================================
-  // TOGGLE COMPONENT
-  // ==========================================
-
-  const Toggle = ({ enabled, onClick }) => {
-    return (
-      <motion.button
-        whileTap={{ scale: 0.92 }}
-        onClick={onClick}
-        className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${
-          enabled
-            ? "bg-blue-600"
-            : "bg-gray-300 dark:bg-slate-600"
-        }`}
-      >
-        <motion.div
-          animate={{
-            x: enabled ? 28 : 4,
-          }}
-          transition={{
-            type: "spring",
-            stiffness: 500,
-            damping: 30,
-          }}
-          className="absolute top-1 w-5 h-5 rounded-full bg-white shadow-md"
-        />
-      </motion.button>
-    );
-  };
-
-  // ==========================================
-  // SETTING ROW
-  // ==========================================
-
-  const SettingRow = ({
-    icon,
-    iconBg,
-    title,
-    description,
-    enabled,
-    settingName,
-  }) => {
-    return (
-      <motion.div
-        whileHover={{
-          x: 4,
-          scale: 1.01,
-        }}
-        className="flex items-center justify-between gap-4 p-5 rounded-xl bg-gray-50 dark:bg-slate-800/70 hover:shadow-md transition-all duration-300"
-      >
-        <div className="flex items-center gap-4">
-
-          <motion.div
-            whileHover={{
-              scale: 1.1,
-              rotate: 5,
-            }}
-            className={`w-11 h-11 rounded-xl flex items-center justify-center ${iconBg}`}
-          >
-            {icon}
-          </motion.div>
-
-          <div>
-
-            <h3 className="font-semibold text-gray-800 dark:text-white">
-              {title}
-            </h3>
-
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {description}
-            </p>
-
-          </div>
-
-        </div>
-
-        <Toggle
-          enabled={enabled}
-          onClick={() => toggleSetting(settingName)}
-        />
-
-      </motion.div>
-    );
   };
 
   return (
@@ -428,6 +407,7 @@ const Settings = () => {
             description="Receive important updates through email"
             enabled={settings.emailNotifications}
             settingName="emailNotifications"
+            toggleSetting={toggleSetting}
           />
 
           <SettingRow
@@ -437,8 +417,10 @@ const Settings = () => {
             description="Get notified when a new order is created"
             enabled={settings.orderNotifications}
             settingName="orderNotifications"
+            toggleSetting={toggleSetting}
           />
 
+          {isAdmin && (
           <SettingRow
             icon={<FaExclamationTriangle className="text-orange-600" />}
             iconBg="bg-orange-100 dark:bg-orange-900/40"
@@ -446,7 +428,9 @@ const Settings = () => {
             description="Receive alerts when products are running low"
             enabled={settings.lowStockAlerts}
             settingName="lowStockAlerts"
+            toggleSetting={toggleSetting}
           />
+          )}
 
           <SettingRow
             icon={<FaVolumeUp className="text-purple-600" />}
@@ -455,6 +439,7 @@ const Settings = () => {
             description="Play sound when important notifications arrive"
             enabled={settings.soundEffects}
             settingName="soundEffects"
+            toggleSetting={toggleSetting}
           />
 
         </div>
@@ -546,28 +531,21 @@ const Settings = () => {
 
               <select
                 name="currency"
-                value={settings.currency}
-                onChange={handleSelectChange}
+                value={currencyCode}
+                onChange={(e) => setCurrencyCode(e.target.value)}
                 className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
               >
-
-                <option value="USD">
-                  USD - US Dollar
-                </option>
-
-                <option value="NPR">
-                  NPR - Nepalese Rupee
-                </option>
-
-                <option value="INR">
-                  INR - Indian Rupee
-                </option>
-
-                <option value="EUR">
-                  EUR - Euro
-                </option>
-
+                {CURRENCY_LIST.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.code} - {c.label}
+                  </option>
+                ))}
               </select>
+
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                Applies immediately across the dashboard, products, and orders. Exchange rates are a fixed demo
+                configuration for now (see <code>src/data/currencyConfig.js</code>), not a live feed.
+              </p>
 
             </div>
 
@@ -624,6 +602,7 @@ const Settings = () => {
           description="Automatically save dashboard preferences"
           enabled={settings.autoSave}
           settingName="autoSave"
+          toggleSetting={toggleSetting}
         />
 
       </motion.div>

@@ -6,11 +6,6 @@ import Category from "../models/Category.js";
 
 export const createCategory = async (req, res) => {
   try {
-    console.log(
-      "CATEGORY REQUEST RECEIVED:",
-      req.body
-    );
-
     const {
       name,
       description,
@@ -44,11 +39,6 @@ export const createCategory = async (req, res) => {
       description: description?.trim() || "",
       status: status || "active",
     });
-
-    console.log(
-      "CATEGORY SAVED TO MONGODB:",
-      category
-    );
 
     return res.status(201).json({
       success: true,

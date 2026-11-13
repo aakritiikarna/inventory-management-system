@@ -1,718 +1,275 @@
 import { useState } from "react";
 import {
-  FaUserCircle,
   FaEnvelope,
-  FaPhone,
   FaMapMarkerAlt,
   FaCalendarAlt,
   FaEdit,
-  FaLock,
   FaSave,
   FaTimes,
   FaCamera,
   FaShieldAlt,
-  FaCheckCircle,
+  FaSpinner,
 } from "react-icons/fa";
-import { motion, AnimatePresence } from "framer-motion";
+import toast from "react-hot-toast";
+
+import API from "../api/api";
 import { useAuth } from "../context/AuthContext";
+import Avatar from "../components/common/Avatar";
+
+const roleLabel = (role) =>
+  ({ admin: "Administrator", user: "Staff", customer: "Customer" }[role] || role || "—");
 
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, login } = useAuth();
 
   const [editing, setEditing] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const [profile, setProfile] = useState({
-    name: user?.name || "Admin",
-    email: user?.email || "admin@gmail.com",
-    phone: user?.phone || "+977 9800000000",
-    address: user?.address || "Kathmandu, Nepal",
-    role: user?.role || "Administrator",
-    joined: user?.joined || "June 2026",
+  const [form, setForm] = useState({
+    name: user?.name || "",
+    address: user?.address || "",
   });
 
-  const [password, setPassword] = useState({
-    current: "",
-    newPassword: "",
-    confirm: "",
-  });
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
-  const handleChange = (e) => {
-    setProfile({
-      ...profile,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handlePasswordChange = (e) => {
-    setPassword({
-      ...password,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleSave = () => {
-    localStorage.setItem("profile", JSON.stringify(profile));
-
-    setEditing(false);
-    setSaved(true);
-
-    setTimeout(() => {
-      setSaved(false);
-    }, 2500);
-  };
-
-  const handleCancel = () => {
-    setEditing(false);
-  };
-
-  const handlePasswordUpdate = (e) => {
-    e.preventDefault();
-
-    if (
-      !password.current ||
-      !password.newPassword ||
-      !password.confirm
-    ) {
-      alert("Please fill all password fields.");
-      return;
-    }
-
-    if (password.newPassword !== password.confirm) {
-      alert("New password and confirm password do not match.");
-      return;
-    }
-
-    alert("Password updated successfully.");
-
-    setPassword({
-      current: "",
-      newPassword: "",
-      confirm: "",
-    });
-
-    setShowPassword(false);
-  };
+  const [passwordForm, setPasswordForm] = useState({ newPassword: "", confirm: "" });
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
 
   const inputClass =
     "w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition";
 
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    try {
+      setSaving(true);
+
+      const payload = new FormData();
+      payload.append("name", form.name);
+      payload.append("address", form.address);
+      if (imageFile) payload.append("profileImage", imageFile);
+
+      const { data } = await API.put(`/users/${user._id}`, payload);
+
+      // Refresh the locally stored session so the navbar/avatar update immediately
+      login(data.user, localStorage.getItem("pos-token"));
+
+      toast.success("Profile updated");
+      setEditing(false);
+      setImageFile(null);
+      setImagePreview(null);
+    } catch (err) {
+      console.error("UPDATE PROFILE ERROR:", err);
+      toast.error(err.response?.data?.message || "Unable to update profile");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setForm({ name: user?.name || "", address: user?.address || "" });
+    setImageFile(null);
+    setImagePreview(null);
+    setEditing(false);
+  };
+
+  const handlePasswordUpdate = async (e) => {
+    e.preventDefault();
+
+    if (!passwordForm.newPassword || !passwordForm.confirm) {
+      toast.error("Please fill in both password fields.");
+      return;
+    }
+    if (passwordForm.newPassword.length < 4) {
+      toast.error("Password should be at least 4 characters.");
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirm) {
+      toast.error("Passwords do not match.");
+      return;
+    }
+
+    try {
+      setSavingPassword(true);
+      await API.put(`/users/${user._id}`, { password: passwordForm.newPassword });
+      toast.success("Password updated");
+      setPasswordForm({ newPassword: "", confirm: "" });
+      setChangingPassword(false);
+    } catch (err) {
+      console.error("UPDATE PASSWORD ERROR:", err);
+      toast.error(err.response?.data?.message || "Unable to update password");
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
+  if (!user) return null;
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="space-y-6"
-    >
-
-      {/* ==========================================
-          HEADER
-      ========================================== */}
-
-      <motion.div
-        initial={{ opacity: 0, y: -25 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-      >
+    <div className="space-y-6 max-w-3xl">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
-            My Profile
-          </h1>
-
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Manage your personal information and account settings
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">My Profile</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
+            Manage your personal information and account settings.
           </p>
-
         </div>
 
         {!editing && (
-          <motion.button
-            whileHover={{
-              scale: 1.05,
-              y: -2,
-            }}
-            whileTap={{
-              scale: 0.95,
-            }}
+          <button
             onClick={() => setEditing(true)}
-            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-semibold shadow-lg transition"
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-medium shadow-sm transition cursor-pointer"
           >
-            <FaEdit />
-            Edit Profile
-          </motion.button>
+            <FaEdit size={13} /> Edit Profile
+          </button>
         )}
-      </motion.div>
+      </div>
 
-      {/* ==========================================
-          SUCCESS MESSAGE
-      ========================================== */}
-
-      <AnimatePresence>
-        {saved && (
-          <motion.div
-            initial={{
-              opacity: 0,
-              y: -15,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            exit={{
-              opacity: 0,
-              y: -15,
-            }}
-            className="flex items-center gap-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 px-5 py-4 rounded-xl shadow-md"
-          >
-            <FaCheckCircle />
-
-            <span className="font-medium">
-              Profile updated successfully.
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ==========================================
-          PROFILE TOP CARD
-      ========================================== */}
-
-      <motion.div
-        initial={{
-          opacity: 0,
-          y: 30,
-        }}
-        animate={{
-          opacity: 1,
-          y: 0,
-        }}
-        transition={{
-          duration: 0.5,
-          delay: 0.1,
-        }}
-        whileHover={{
-          y: -4,
-        }}
-        className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-lg hover:shadow-2xl transition-shadow overflow-hidden"
-      >
-
-        {/* Cover */}
-
-        <div className="h-36 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 relative">
-
-          <motion.div
-            animate={{
-              scale: [1, 1.05, 1],
-            }}
-            transition={{
-              duration: 4,
-              repeat: Infinity,
-            }}
-            className="absolute inset-0 bg-white/5"
-          />
-
-        </div>
-
-        {/* Profile Information */}
-
-        <div className="px-6 pb-6">
-
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 -mt-16">
-
-            {/* Avatar */}
-
-            <div className="flex items-end gap-5">
-
-              <motion.div
-                whileHover={{
-                  scale: 1.08,
-                  rotate: 3,
-                }}
-                className="relative"
-              >
-
-                <div className="w-32 h-32 rounded-full bg-white dark:bg-slate-900 p-2 shadow-xl">
-
-                  <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white">
-                    <FaUserCircle size={85} />
-                  </div>
-
-                </div>
-
-                <motion.button
-                  whileHover={{
-                    scale: 1.1,
-                  }}
-                  whileTap={{
-                    scale: 0.9,
-                  }}
-                  className="absolute bottom-1 right-1 w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg hover:bg-blue-700"
-                  title="Change profile picture"
-                >
-                  <FaCamera />
-                </motion.button>
-
-              </motion.div>
-
-              <div className="pb-2">
-
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
-                  {profile.name}
-                </h2>
-
-                <p className="text-gray-500 dark:text-gray-400">
-                  {profile.role}
-                </p>
-
+      {/* PROFILE CARD */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-sm p-6">
+        {editing ? (
+          <form onSubmit={handleSave} className="space-y-5">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                {imagePreview ? (
+                  <img src={imagePreview} alt="preview" className="w-20 h-20 rounded-full object-cover border border-gray-200 dark:border-slate-700" />
+                ) : (
+                  <Avatar name={user.name} src={user.profileImage} size={80} />
+                )}
+                <label className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center cursor-pointer shadow">
+                  <FaCamera size={12} />
+                  <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleImageChange} className="hidden" />
+                </label>
               </div>
-
+              <p className="text-xs text-gray-500 dark:text-gray-400">JPG, PNG or WEBP. Max 5MB.</p>
             </div>
 
-            {/* Status */}
-
-            <div className="flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full font-semibold text-sm">
-
-              <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
-
-              Active Account
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </motion.div>
-
-      {/* ==========================================
-          PROFILE INFORMATION
-      ========================================== */}
-
-      <motion.div
-        initial={{
-          opacity: 0,
-          y: 30,
-        }}
-        animate={{
-          opacity: 1,
-          y: 0,
-        }}
-        transition={{
-          duration: 0.5,
-          delay: 0.2,
-        }}
-        className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-lg p-6"
-      >
-
-        <div className="flex items-center justify-between mb-6">
-
-          <div>
-
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white">
-              Personal Information
-            </h2>
-
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Your account and contact information
-            </p>
-
-          </div>
-
-          <FaUserCircle className="text-blue-600 text-2xl" />
-
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-          {/* NAME */}
-
-          <div>
-
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Full Name
-            </label>
-
-            <div className="relative">
-
-              <FaUserCircle className="absolute left-4 top-4 text-gray-400" />
-
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Full name</label>
               <input
-                type="text"
-                name="name"
-                value={profile.name}
-                onChange={handleChange}
-                disabled={!editing}
-                className={`${inputClass} pl-11 ${
-                  !editing
-                    ? "cursor-not-allowed opacity-80"
-                    : ""
-                }`}
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className={inputClass}
+                required
               />
-
             </div>
 
-          </div>
-
-          {/* EMAIL */}
-
-          <div>
-
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Email Address
-            </label>
-
-            <div className="relative">
-
-              <FaEnvelope className="absolute left-4 top-4 text-gray-400" />
-
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Address</label>
               <input
-                type="email"
-                name="email"
-                value={profile.email}
-                onChange={handleChange}
-                disabled={!editing}
-                className={`${inputClass} pl-11 ${
-                  !editing
-                    ? "cursor-not-allowed opacity-80"
-                    : ""
-                }`}
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                className={inputClass}
               />
-
             </div>
 
-          </div>
-
-          {/* PHONE */}
-
-          <div>
-
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Phone Number
-            </label>
-
-            <div className="relative">
-
-              <FaPhone className="absolute left-4 top-4 text-gray-400" />
-
-              <input
-                type="text"
-                name="phone"
-                value={profile.phone}
-                onChange={handleChange}
-                disabled={!editing}
-                className={`${inputClass} pl-11 ${
-                  !editing
-                    ? "cursor-not-allowed opacity-80"
-                    : ""
-                }`}
-              />
-
-            </div>
-
-          </div>
-
-          {/* ADDRESS */}
-
-          <div>
-
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Address
-            </label>
-
-            <div className="relative">
-
-              <FaMapMarkerAlt className="absolute left-4 top-4 text-gray-400" />
-
-              <input
-                type="text"
-                name="address"
-                value={profile.address}
-                onChange={handleChange}
-                disabled={!editing}
-                className={`${inputClass} pl-11 ${
-                  !editing
-                    ? "cursor-not-allowed opacity-80"
-                    : ""
-                }`}
-              />
-
-            </div>
-
-          </div>
-
-          {/* ROLE */}
-
-          <div>
-
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Role
-            </label>
-
-            <div className="relative">
-
-              <FaShieldAlt className="absolute left-4 top-4 text-gray-400" />
-
-              <input
-                type="text"
-                value={profile.role}
-                disabled
-                className={`${inputClass} pl-11 cursor-not-allowed opacity-70`}
-              />
-
-            </div>
-
-          </div>
-
-          {/* JOINED */}
-
-          <div>
-
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Joined Date
-            </label>
-
-            <div className="relative">
-
-              <FaCalendarAlt className="absolute left-4 top-4 text-gray-400" />
-
-              <input
-                type="text"
-                value={profile.joined}
-                disabled
-                className={`${inputClass} pl-11 cursor-not-allowed opacity-70`}
-              />
-
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* SAVE / CANCEL */}
-
-        <AnimatePresence>
-          {editing && (
-            <motion.div
-              initial={{
-                opacity: 0,
-                height: 0,
-              }}
-              animate={{
-                opacity: 1,
-                height: "auto",
-              }}
-              exit={{
-                opacity: 0,
-                height: 0,
-              }}
-              className="flex flex-wrap justify-end gap-3 mt-6 pt-6 border-t border-gray-200 dark:border-slate-700"
-            >
-
-              <motion.button
-                whileHover={{
-                  scale: 1.04,
-                }}
-                whileTap={{
-                  scale: 0.95,
-                }}
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition disabled:opacity-60 cursor-pointer"
+              >
+                {saving ? <FaSpinner className="animate-spin" size={13} /> : <FaSave size={13} />}
+                {saving ? "Saving..." : "Save changes"}
+              </button>
+              <button
+                type="button"
                 onClick={handleCancel}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-200 dark:hover:bg-slate-700 transition shadow-md"
+                className="flex items-center gap-2 border border-gray-300 dark:border-slate-700 text-gray-600 dark:text-gray-300 px-5 py-2.5 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-slate-800 transition cursor-pointer"
               >
-                <FaTimes />
-                Cancel
-              </motion.button>
+                <FaTimes size={13} /> Cancel
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-5">
+            <Avatar name={user.name} src={user.profileImage} size={80} />
+            <div className="min-w-0">
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">{user.name}</h2>
+              <span className="inline-flex items-center gap-1.5 mt-1 text-xs font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                <FaShieldAlt size={10} /> {roleLabel(user.role)}
+              </span>
 
-              <motion.button
-                whileHover={{
-                  scale: 1.04,
-                  y: -2,
-                }}
-                whileTap={{
-                  scale: 0.95,
-                }}
-                onClick={handleSave}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition shadow-lg"
-              >
-                <FaSave />
-                Save Changes
-              </motion.button>
+              <div className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                <p className="flex items-center gap-2"><FaEnvelope className="text-gray-400" size={13} /> {user.email}</p>
+                <p className="flex items-center gap-2"><FaMapMarkerAlt className="text-gray-400" size={13} /> {user.address || "No address on file"}</p>
+                {user.createdAt && (
+                  <p className="flex items-center gap-2">
+                    <FaCalendarAlt className="text-gray-400" size={13} /> Joined {new Date(user.createdAt).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-      </motion.div>
-
-      {/* ==========================================
-          SECURITY
-      ========================================== */}
-
-      <motion.div
-        initial={{
-          opacity: 0,
-          y: 30,
-        }}
-        animate={{
-          opacity: 1,
-          y: 0,
-        }}
-        transition={{
-          duration: 0.5,
-          delay: 0.3,
-        }}
-        className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-lg p-6"
-      >
-
-        <div className="flex items-center justify-between mb-6">
-
+      {/* PASSWORD */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-sm p-6">
+        <div className="flex items-center justify-between">
           <div>
-
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white">
-              Account Security
-            </h2>
-
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Manage your password and account security
+            <h3 className="font-semibold text-gray-800 dark:text-white">Password</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+              Change your account password.
             </p>
-
           </div>
-
-          <div className="w-11 h-11 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-600 flex items-center justify-center shadow-md">
-            <FaLock />
-          </div>
-
+          {!changingPassword && (
+            <button
+              onClick={() => setChangingPassword(true)}
+              className="text-sm font-medium text-blue-600 hover:text-blue-700 cursor-pointer"
+            >
+              Change password
+            </button>
+          )}
         </div>
 
-        <motion.button
-          whileHover={{
-            scale: 1.03,
-            y: -2,
-          }}
-          whileTap={{
-            scale: 0.97,
-          }}
-          onClick={() => setShowPassword(!showPassword)}
-          className="flex items-center gap-3 px-5 py-3 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-200 dark:hover:bg-slate-700 transition shadow-md"
-        >
-
-          <FaLock />
-
-          {showPassword
-            ? "Close Password Form"
-            : "Change Password"}
-
-        </motion.button>
-
-        <AnimatePresence>
-
-          {showPassword && (
-
-            <motion.form
-              initial={{
-                opacity: 0,
-                height: 0,
-              }}
-              animate={{
-                opacity: 1,
-                height: "auto",
-              }}
-              exit={{
-                opacity: 0,
-                height: 0,
-              }}
-              onSubmit={handlePasswordUpdate}
-              className="mt-6 pt-6 border-t border-gray-200 dark:border-slate-700 overflow-hidden"
-            >
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-
-                <div>
-
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Current Password
-                  </label>
-
-                  <input
-                    type="password"
-                    name="current"
-                    value={password.current}
-                    onChange={handlePasswordChange}
-                    placeholder="Current password"
-                    className={inputClass}
-                  />
-
-                </div>
-
-                <div>
-
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    New Password
-                  </label>
-
-                  <input
-                    type="password"
-                    name="newPassword"
-                    value={password.newPassword}
-                    onChange={handlePasswordChange}
-                    placeholder="New password"
-                    className={inputClass}
-                  />
-
-                </div>
-
-                <div>
-
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Confirm Password
-                  </label>
-
-                  <input
-                    type="password"
-                    name="confirm"
-                    value={password.confirm}
-                    onChange={handlePasswordChange}
-                    placeholder="Confirm password"
-                    className={inputClass}
-                  />
-
-                </div>
-
-              </div>
-
-              <div className="flex justify-end mt-5">
-
-                <motion.button
-                  whileHover={{
-                    scale: 1.05,
-                    y: -2,
-                  }}
-                  whileTap={{
-                    scale: 0.95,
-                  }}
-                  type="submit"
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-semibold shadow-lg transition"
-                >
-
-                  <FaSave />
-
-                  Update Password
-
-                </motion.button>
-
-              </div>
-
-            </motion.form>
-
-          )}
-
-        </AnimatePresence>
-
-      </motion.div>
-
-    </motion.div>
+        {changingPassword && (
+          <form onSubmit={handlePasswordUpdate} className="mt-4 space-y-3">
+            <input
+              type="password"
+              placeholder="New password"
+              value={passwordForm.newPassword}
+              onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+              className={inputClass}
+              required
+            />
+            <input
+              type="password"
+              placeholder="Confirm new password"
+              value={passwordForm.confirm}
+              onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
+              className={inputClass}
+              required
+            />
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={savingPassword}
+                className="flex items-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-5 py-2.5 rounded-xl font-medium disabled:opacity-60 cursor-pointer"
+              >
+                {savingPassword && <FaSpinner className="animate-spin" size={13} />}
+                {savingPassword ? "Updating..." : "Update password"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setChangingPassword(false); setPasswordForm({ newPassword: "", confirm: "" }); }}
+                className="px-5 py-2.5 rounded-xl font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
   );
 };
 

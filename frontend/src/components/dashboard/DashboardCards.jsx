@@ -1,99 +1,120 @@
 import {
-  FaBoxes,
-  FaShoppingCart,
   FaDollarSign,
-  FaUsers,
+  FaShoppingCart,
+  FaChartLine,
+  FaUserPlus,
+  FaBoxes,
+  FaTruck,
+  FaWarehouse,
+  FaExclamationTriangle,
 } from "react-icons/fa";
 
-import { motion } from "framer-motion";
+import DashboardCard from "./DashboardCard";
+import { useDashboard } from "../../context/DashboardContext";
+import { useCurrency } from "../../context/CurrencyContext";
 
-const cards = [
-  {
-    title: "Total Revenue",
-    value: "$84,250",
-    icon: <FaDollarSign />,
-    bg: "bg-blue-50",
-    iconBg: "bg-blue-500",
-    text: "text-blue-700",
-    change: "+18%",
-  },
-  {
-    title: "Total Orders",
-    value: "1,248",
-    icon: <FaShoppingCart />,
-    bg: "bg-green-50",
-    iconBg: "bg-green-500",
-    text: "text-green-700",
-    change: "+12%",
-  },
-  {
-    title: "Products",
-    value: "582",
-    icon: <FaBoxes />,
-    bg: "bg-orange-50",
-    iconBg: "bg-orange-500",
-    text: "text-orange-700",
-    change: "+8%",
-  },
-  {
-    title: "Customers",
-    value: "326",
-    icon: <FaUsers />,
-    bg: "bg-purple-50",
-    iconBg: "bg-purple-500",
-    text: "text-purple-700",
-    change: "+24%",
-  },
-];
+const toSpark = (arr, key) => (arr || []).map((p) => ({ v: p[key] }));
 
 const DashboardCards = () => {
+  const { formatMoney: currency } = useCurrency();
+  const { stats, periodStats, revenueTrend, ordersTrend, profitTrend, loading } = useDashboard();
+
+  const cards = [
+    {
+      title: "Total Revenue",
+      value: currency(stats.totalRevenue),
+      icon: <FaDollarSign />,
+      color: "bg-blue-500",
+      accent: "#2563eb",
+      change: periodStats.revenueChange,
+      note: "vs last 30 days",
+      sparkline: toSpark(revenueTrend, "revenue"),
+    },
+    {
+      title: "Total Orders",
+      value: stats.totalOrders?.toLocaleString() ?? "0",
+      icon: <FaShoppingCart />,
+      color: "bg-emerald-500",
+      accent: "#10b981",
+      change: periodStats.ordersChange,
+      note: "vs last 30 days",
+      sparkline: toSpark(ordersTrend, "orders"),
+    },
+    {
+      title: "Total Profit",
+      value: currency(stats.totalProfit),
+      icon: <FaChartLine />,
+      color: "bg-violet-500",
+      accent: "#8b5cf6",
+      change: periodStats.profitChange,
+      note: stats.hasCostData ? "vs last 30 days" : "add product cost to enable",
+      sparkline: toSpark(profitTrend, "profit"),
+    },
+    {
+      title: "New Customers",
+      value: periodStats.newCustomers?.toLocaleString() ?? "0",
+      icon: <FaUserPlus />,
+      color: "bg-amber-500",
+      accent: "#f59e0b",
+      change: periodStats.newCustomersChange,
+      note: "last 30 days",
+      sparkline: [],
+    },
+    {
+      title: "Products",
+      value: stats.totalProducts?.toLocaleString() ?? "0",
+      icon: <FaBoxes />,
+      color: "bg-orange-500",
+      accent: "#f97316",
+      note: `${stats.categoriesCount ?? 0} categories`,
+      sparkline: [],
+    },
+    {
+      title: "Suppliers",
+      value: stats.totalSuppliers?.toLocaleString() ?? "0",
+      icon: <FaTruck />,
+      color: "bg-teal-500",
+      accent: "#14b8a6",
+      note: `${stats.totalBranches ?? 0} branches`,
+      sparkline: [],
+    },
+    {
+      title: "Units in Stock",
+      value: stats.totalUnits?.toLocaleString() ?? "0",
+      icon: <FaWarehouse />,
+      color: "bg-indigo-500",
+      accent: "#6366f1",
+      note: `${currency(stats.inventoryValue)} inventory value`,
+      sparkline: [],
+    },
+    {
+      title: "Low Stock",
+      value: stats.lowStockCount?.toLocaleString() ?? "0",
+      icon: <FaExclamationTriangle />,
+      color: stats.lowStockCount > 0 ? "bg-red-500" : "bg-emerald-500",
+      accent: stats.lowStockCount > 0 ? "#ef4444" : "#10b981",
+      note: stats.lowStockCount > 0 ? "products need restocking" : "all products sufficiently stocked",
+      sparkline: [],
+    },
+  ];
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-[148px] rounded-2xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 animate-pulse"
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-      {cards.map((card, index) => (
-        <motion.div
-          key={card.title}
-          initial={{
-            opacity: 0,
-            y: 20,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-          }}
-          transition={{
-            duration: 0.4,
-            delay: index * 0.1,
-          }}
-          whileHover={{
-            y: -6,
-            scale: 1.02,
-          }}
-          className={`${card.bg} rounded-2xl shadow-sm border border-gray-200 p-6 cursor-pointer`}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-500 text-sm font-medium">
-                {card.title}
-              </p>
-
-              <h2 className="text-3xl font-bold mt-2 text-gray-800">
-                {card.value}
-              </h2>
-
-              <span
-                className={`${card.text} text-sm font-semibold mt-3 inline-block`}
-              >
-                {card.change} this month
-              </span>
-            </div>
-
-            <div
-              className={`${card.iconBg} w-14 h-14 rounded-xl flex items-center justify-center text-white text-xl shadow-lg`}
-            >
-              {card.icon}
-            </div>
-          </div>
-        </motion.div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+      {cards.map((card, i) => (
+        <DashboardCard key={card.title} {...card} delay={i * 0.05} />
       ))}
     </div>
   );

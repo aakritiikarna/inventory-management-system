@@ -1,120 +1,165 @@
-import { useState } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaSpinner, FaBoxes } from "react-icons/fa";
+
+import API from "../api/api";
+import { useAuth } from "../context/AuthContext";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, user } = useAuth();
+
+  // Already signed in — no reason to show the login form again
+  useEffect(() => {
+    if (user) {
+      navigate("/admin-dashboard", { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
-  setLoading(true);
-  setError("");
+    try {
+      const { data } = await API.post("/auth/login", { email, password });
 
-  try {
-    const { data } = await axios.post(
-      "http://localhost:3000/api/auth/login",
-      {
-        email,
-        password,
-      }
-    );
-
-    if (data.success) {
-      localStorage.removeItem("pos-token");
-      localStorage.removeItem("pos-user");
-
-      login(data.user, data.token);
-
-      if (data.user.role === "admin") {
+      if (data.success) {
+        login(data.user, data.token);
+        // Every role lands in the same app shell — what each one can see and
+        // do inside it is decided by role (route guards + the API). There
+        // is no separate /customer-dashboard route, so sending customers
+        // there used to drop them on the 404 page.
         navigate("/admin-dashboard");
       } else {
-        navigate("/customer-dashboard");
+        setError(data.message || "Unable to sign in");
       }
-    } else {
-      setError(data.message);
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Unable to connect to the server. Please try again."
+      );
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.log(err);
-
-    if (err.response) {
-      setError(err.response.data.message);
-    } else {
-      setError("Unable to connect to server.");
-    }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
-    <div
-      className="flex flex-col items-center justify-center min-h-screen
-      bg-gradient-to-br from-blue-900 via-indigo-800 to-purple-800"
-    >
-      <h1 className="text-4xl font-bold text-white mb-8">
-        Inventory Management System
-      </h1>
+    <div className="min-h-screen w-full flex bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
+      {/* LEFT — BRAND PANEL (hidden on small screens) */}
+      <div className="hidden lg:flex w-1/2 flex-col justify-between p-12 bg-gray-900 dark:bg-slate-900 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.04]" style={{
+          backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
+          backgroundSize: "28px 28px",
+        }} />
 
-      <div className="bg-white shadow-2xl rounded-xl p-8 w-96">
-        <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">
-          Login
-        </h2>
-
-        {error && (
-          <div className="bg-red-100 text-red-600 border border-red-300 rounded p-2 mb-4 text-center">
-            {error}
+        <div className="relative flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-white text-gray-900 flex items-center justify-center font-bold text-lg">
+            <FaBoxes />
           </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-2">
-              Email
-            </label>
-
-            <input
-              type="email"
-              name="email"
-              placeholder="Enter Email"
-              className="w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+          <div>
+            <h1 className="text-white font-semibold tracking-tight">Inventory Pro</h1>
+            <p className="text-xs text-gray-400">Admin Dashboard</p>
           </div>
+        </div>
 
-          <div className="mb-5">
-            <label className="block text-gray-700 mb-2">
-              Password
-            </label>
+        <div className="relative max-w-md">
+          <h2 className="text-3xl font-semibold text-white leading-snug">
+            Run your inventory like a real business.
+          </h2>
+          <p className="text-gray-400 mt-4 leading-relaxed">
+            Track stock, orders, suppliers, and branches across your organization —
+            all from one clean, dependable dashboard.
+          </p>
+        </div>
 
-            <input
-              type="password"
-              name="password"
-              placeholder="Enter Password"
-              className="w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+        <p className="relative text-xs text-gray-500">
+          © {new Date().getFullYear()} Inventory Pro. All demo data.
+        </p>
+      </div>
+
+      {/* RIGHT — LOGIN FORM */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-10">
+        <div className="w-full max-w-sm">
+          <div className="lg:hidden flex items-center gap-3 mb-10 justify-center">
+            <div className="w-10 h-10 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 flex items-center justify-center font-bold text-lg">
+              <FaBoxes />
+            </div>
+            <h1 className="text-gray-900 dark:text-white font-semibold tracking-tight">Inventory Pro</h1>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-700 hover:bg-blue-800 text-white py-2 rounded-lg font-semibold transition duration-200"
-          >
-            {loading ? "Logging in..." : "Login"}
-          </button>
-        </form>
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Welcome back</h2>
+          <p className="text-gray-500 dark:text-gray-400 mt-1.5 text-sm">
+            Sign in to your account to continue.
+          </p>
+
+          {error && (
+            <div className="mt-6 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-xl px-4 py-3">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Email
+              </label>
+              <div className="relative">
+                <FaEnvelope className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 text-sm" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  required
+                  autoComplete="email"
+                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-900 dark:text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Password
+              </label>
+              <div className="relative">
+                <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 text-sm" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  autoComplete="current-password"
+                  className="w-full pl-11 pr-11 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-900 dark:text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <FaEyeSlash size={14} /> : <FaEye size={14} />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold hover:opacity-90 transition disabled:opacity-60 cursor-pointer mt-2"
+            >
+              {loading && <FaSpinner className="animate-spin" size={14} />}
+              {loading ? "Signing in..." : "Sign in"}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

@@ -1,1 +1,18 @@
 @import "tailwindcss";
+
+/* Tailwind v4 no longer reads `darkMode: "class"` from tailwind.config.js.
+   This tells every `dark:` utility to key off the `.dark` class on <html>
+   (toggled by ThemeContext) instead of the OS `prefers-color-scheme`. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900 dark:bg-slate-950 dark:text-gray-100 transition-colors duration-200;
+}

@@ -7,18 +7,24 @@ import {
   deleteSupplier,
 } from "../controllers/supplierController.js";
 
+import authMiddleware from "../middleware/authMiddleware.js";
+import requireRole from "../middleware/roleMiddleware.js";
+
 const router = express.Router();
+
+// Supplier data is internal — admin only, reads included.
+router.use(authMiddleware, requireRole("admin"));
 
 // GET all suppliers
 router.get("/", getSuppliers);
 
-// POST new supplier
+// POST new supplier (admin/user only)
 router.post("/", addSupplier);
 
-// PUT update supplier
+// PUT update supplier (admin/user only)
 router.put("/:id", updateSupplier);
 
-// DELETE supplier
-router.delete("/:id", deleteSupplier);
+// DELETE supplier (admin only)
+router.delete("/:id", requireRole("admin"), deleteSupplier);
 
 export default router;

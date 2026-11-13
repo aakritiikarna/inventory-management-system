@@ -54,6 +54,12 @@ const orderSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+
+    branch: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Branch",
+      default: null,
+    },
   },
   {
     timestamps: true,

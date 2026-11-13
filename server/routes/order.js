@@ -8,26 +8,27 @@ import {
   deleteOrder,
 } from "../controllers/orderController.js";
 
+import authMiddleware from "../middleware/authMiddleware.js";
+import requireRole from "../middleware/roleMiddleware.js";
+
 const router = express.Router();
 
-/* Get All */
+// Orders/shipments are internal operations — admin only, reads included.
+router.use(authMiddleware, requireRole("admin"));
 
+/* Get All */
 router.get("/", getOrders);
 
 /* Get Single */
-
 router.get("/:id", getOrder);
 
-/* Create */
-
+/* Create (admin/user only) */
 router.post("/", createOrder);
 
-/* Update */
-
+/* Update (admin/user only) */
 router.put("/:id", updateOrder);
 
-/* Delete */
-
-router.delete("/:id", deleteOrder);
+/* Delete (admin only) */
+router.delete("/:id", requireRole("admin"), deleteOrder);
 
 export default router;

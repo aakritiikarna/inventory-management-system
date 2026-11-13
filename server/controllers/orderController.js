@@ -4,9 +4,10 @@ import Order from "../models/Order.js";
 
 export const getOrders = async (req, res) => {
   try {
-    const orders = await Order.find().sort({
-      createdAt: -1,
-    });
+    const orders = await Order.find()
+      .sort({ createdAt: -1 })
+      .populate("products.product", "productName image price sku")
+      .populate("branch", "name city");
 
     res.status(200).json({
       success: true,
@@ -24,7 +25,9 @@ export const getOrders = async (req, res) => {
 
 export const getOrder = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id)
+      .populate("products.product", "productName image price sku")
+      .populate("branch", "name city");
 
     if (!order) {
       return res.status(404).json({

@@ -3,17 +3,27 @@ import { createContext, useContext, useState } from "react";
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(
-    JSON.parse(localStorage.getItem("user")) || null
-  );
+  const [user, setUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("pos-user")) || null;
+    } catch {
+      return null;
+    }
+  });
 
-  const login = (userData) => {
-    localStorage.setItem("user", JSON.stringify(userData));
+  // Accepts (userData, token) from Login.jsx and persists both under the
+  // keys the API client (src/api/api.js) expects.
+  const login = (userData, token) => {
+    localStorage.setItem("pos-user", JSON.stringify(userData));
+    if (token) {
+      localStorage.setItem("pos-token", token);
+    }
     setUser(userData);
   };
 
   const logout = () => {
-    localStorage.removeItem("user");
+    localStorage.removeItem("pos-user");
+    localStorage.removeItem("pos-token");
     setUser(null);
   };
 

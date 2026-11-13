@@ -1,143 +1,93 @@
-import { useState } from "react";
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
   CartesianGrid,
 } from "recharts";
+import { useDashboard } from "../../context/DashboardContext";
+import { useCurrency } from "../../context/CurrencyContext";
+import { DEMO_MONTHLY_REVENUE } from "../../data/demoData";
+import DemoDataBadge from "../common/DemoDataBadge";
 
-const weeklyData = [
-  { name: "Mon", revenue: 4200, orders: 80 },
-  { name: "Tue", revenue: 5200, orders: 95 },
-  { name: "Wed", revenue: 4800, orders: 90 },
-  { name: "Thu", revenue: 6500, orders: 120 },
-  { name: "Fri", revenue: 7600, orders: 140 },
-  { name: "Sat", revenue: 8400, orders: 160 },
-  { name: "Sun", revenue: 9200, orders: 185 },
-];
+const formatDate = (isoDate) => {
+  const d = new Date(isoDate);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+};
 
-const monthlyData = [
-  { name: "Jan", revenue: 32000, orders: 680 },
-  { name: "Feb", revenue: 36000, orders: 740 },
-  { name: "Mar", revenue: 42000, orders: 810 },
-  { name: "Apr", revenue: 47000, orders: 890 },
-  { name: "May", revenue: 52000, orders: 980 },
-  { name: "Jun", revenue: 61000, orders: 1080 },
-];
-
-const yearlyData = [
-  { name: "2022", revenue: 220000, orders: 4200 },
-  { name: "2023", revenue: 310000, orders: 6100 },
-  { name: "2024", revenue: 420000, orders: 7900 },
-  { name: "2025", revenue: 580000, orders: 10200 },
-  { name: "2026", revenue: 720000, orders: 12600 },
-];
+// Below this many real data points, a line/area chart doesn't read as a
+// trend — so we show clearly-labeled demo data instead of a near-empty chart.
+const MIN_REAL_POINTS = 3;
 
 const RevenueChart = () => {
-  const [period, setPeriod] = useState("Weekly");
-  const [metric, setMetric] = useState("revenue");
+  const { revenueTrend, loading } = useDashboard();
+  const { formatMoney, currency } = useCurrency();
+  // Axis ticks: convert from USD and abbreviate (e.g. Rs 1.2M) so large
+  // converted values (NPR/INR) don't overflow the axis.
+  const compactMoney = (usd) => {
+    const n = Number(usd) * currency.rate;
+    const abs = Math.abs(n);
+    const short = abs >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : abs >= 1e3 ? `${(n / 1e3).toFixed(abs >= 1e4 ? 0 : 1)}K` : `${Math.round(n)}`;
+    return `${currency.symbol.trim()}${short}`;
+  };
 
-  const chartData =
-    period === "Weekly"
-      ? weeklyData
-      : period === "Monthly"
-      ? monthlyData
-      : yearlyData;
+  const realData = revenueTrend.map((point) => ({
+    label: formatDate(point.date),
+    revenue: point.revenue,
+  }));
+
+  const usingDemo = !loading && realData.length < MIN_REAL_POINTS;
+  const chartData = usingDemo ? DEMO_MONTHLY_REVENUE : realData;
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-lg p-6">
-
-      {/* Header */}
-
+    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-800 p-6">
       <div className="flex justify-between items-center mb-6">
-
         <div>
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
-            Revenue Analytics
-          </h2>
-
-          <p className="text-gray-500 text-sm mt-1">
-            Sales Performance Overview
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-white">
+              Revenue Trend
+            </h2>
+            {usingDemo && <DemoDataBadge />}
+          </div>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+            {usingDemo
+              ? "Sample monthly revenue — will switch to real data once you have more orders"
+              : `Based on orders placed, most recent ${chartData.length} active days`}
           </p>
         </div>
-
-        <div className="flex gap-2">
-
-          {["Weekly", "Monthly", "Yearly"].map((item) => (
-            <button
-              key={item}
-              onClick={() => setPeriod(item)}
-              className={`px-4 py-2 rounded-lg transition ${
-                period === item
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 dark:bg-slate-800"
-              }`}
-            >
-              {item}
-            </button>
-          ))}
-
-        </div>
-
       </div>
 
-      {/* Revenue / Orders Toggle */}
-
-      <div className="flex gap-3 mb-6">
-
-        <button
-          onClick={() => setMetric("revenue")}
-          className={`px-4 py-2 rounded-lg transition ${
-            metric === "revenue"
-              ? "bg-green-600 text-white"
-              : "bg-gray-100 dark:bg-slate-800"
-          }`}
-        >
-          Revenue
-        </button>
-
-        <button
-          onClick={() => setMetric("orders")}
-          className={`px-4 py-2 rounded-lg transition ${
-            metric === "orders"
-              ? "bg-purple-600 text-white"
-              : "bg-gray-100 dark:bg-slate-800"
-          }`}
-        >
-          Orders
-        </button>
-
-      </div>
-
-      {/* Chart */}
-
-      <ResponsiveContainer width="100%" height={360}>
-        <LineChart data={chartData}>
-
-          <CartesianGrid strokeDasharray="3 3" />
-
-          <XAxis dataKey="name" />
-
-          <YAxis />
-
-          <Tooltip />
-
-          <Line
-            type="monotone"
-            dataKey={metric}
-            stroke={metric === "revenue" ? "#2563eb" : "#9333ea"}
-            strokeWidth={4}
-            dot={{ r: 6 }}
-            activeDot={{ r: 9 }}
-            animationDuration={1500}
-          />
-
-        </LineChart>
-      </ResponsiveContainer>
-
+      {loading ? (
+        <div className="h-[320px] rounded-xl bg-gray-100 dark:bg-slate-800 animate-pulse" />
+      ) : (
+        <ResponsiveContainer width="100%" height={320}>
+          <AreaChart data={chartData}>
+            <defs>
+              <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#2563eb" stopOpacity={0.35} />
+                <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-slate-800" />
+            <XAxis dataKey="label" tick={{ fontSize: 12 }} stroke="currentColor" className="text-gray-400" />
+            <YAxis tick={{ fontSize: 12 }} stroke="currentColor" className="text-gray-400" width={64} tickFormatter={(v) => compactMoney(v)} />
+            <Tooltip
+              formatter={(value) => [formatMoney(Number(value)), "Revenue"]}
+              contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.12)" }}
+            />
+            <Area
+              type="monotone"
+              dataKey="revenue"
+              stroke="#2563eb"
+              strokeWidth={3}
+              fill="url(#revenueFill)"
+              animationDuration={800}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
     </div>
   );
 };

@@ -12,7 +12,7 @@ const DashboardLayout = () => {
       className="
         min-h-screen
         flex
-        bg-gray-100
+        bg-gray-50
         dark:bg-slate-950
         text-gray-800
         dark:text-white
@@ -42,7 +42,7 @@ const DashboardLayout = () => {
             flex-1
             p-4
             md:p-6
-            bg-gray-100
+            bg-gray-50
             dark:bg-slate-950
             transition-colors
             duration-300

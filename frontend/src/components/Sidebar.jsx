@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 import {
   FaTachometerAlt,
@@ -14,10 +15,13 @@ import {
   FaSignOutAlt,
   FaWarehouse,
   FaChartBar,
+  FaMapMarkedAlt,
 } from "react-icons/fa";
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const navigate = useNavigate();
+  const { user, logout: authLogout } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   const menuItems = [
     {
@@ -32,31 +36,43 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     },
     {
       title: "Categories",
+      adminOnly: true,
       icon: <FaTags />,
       path: "/admin-dashboard/categories",
     },
     {
       title: "Suppliers",
+      adminOnly: true,
       icon: <FaTruck />,
       path: "/admin-dashboard/suppliers",
     },
     {
       title: "Orders",
+      adminOnly: true,
       icon: <FaShoppingCart />,
       path: "/admin-dashboard/orders",
     },
     {
       title: "Users",
+      adminOnly: true,
       icon: <FaUsers />,
       path: "/admin-dashboard/users",
     },
     {
+      title: "Branches",
+      adminOnly: true,
+      icon: <FaMapMarkedAlt />,
+      path: "/admin-dashboard/branches",
+    },
+    {
       title: "Inventory",
+      adminOnly: true,
       icon: <FaWarehouse />,
       path: "/admin-dashboard/inventory",
     },
     {
       title: "Reports",
+      adminOnly: true,
       icon: <FaChartBar />,
       path: "/admin-dashboard/reports",
     },
@@ -73,10 +89,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   ];
 
   const logout = () => {
-    localStorage.removeItem("pos-user");
-    localStorage.removeItem("pos-token");
-    localStorage.removeItem("user");
-
+    authLogout(); // clears token + user from storage AND from auth state
     navigate("/login");
   };
 
@@ -85,6 +98,10 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
       setSidebarOpen(false);
     }
   };
+
+  // Non-admins only see what they can actually open. This is a UX layer —
+  // the real enforcement is the route guards in App.jsx and the API.
+  const visibleItems = menuItems.filter((item) => isAdmin || !item.adminOnly);
 
   return (
     <>
@@ -101,16 +118,17 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           left-4
           z-[60]
           lg:hidden
-          w-11
-          h-11
-          rounded-xl
-          bg-blue-600
-          hover:bg-blue-700
+          w-10
+          h-10
+          rounded-lg
+          bg-gray-900
+          dark:bg-white
           text-white
+          dark:text-gray-900
           flex
           items-center
           justify-center
-          shadow-lg
+          shadow-sm
           cursor-pointer
           transition
         "
@@ -147,14 +165,13 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           left-0
           z-[55]
           h-screen
-          w-72
+          w-64
           flex-shrink-0
           bg-white
           dark:bg-slate-900
           border-r
           border-gray-200
           dark:border-slate-800
-          shadow-xl
           flex
           flex-col
           transition-transform
@@ -190,19 +207,18 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
 
             <div
               className="
-                w-11
-                h-11
-                rounded-xl
-                bg-gradient-to-r
-                from-blue-600
-                to-indigo-600
+                w-10
+                h-10
+                rounded-lg
+                bg-gray-900
+                dark:bg-white
                 text-white
+                dark:text-gray-900
                 flex
                 items-center
                 justify-center
                 font-bold
-                text-xl
-                shadow-lg
+                text-lg
               "
             >
               I
@@ -210,12 +226,12 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
 
             <div>
 
-              <h1 className="text-lg font-bold text-gray-800 dark:text-white">
+              <h1 className="text-[15px] font-semibold text-gray-900 dark:text-white tracking-tight">
                 Inventory Pro
               </h1>
 
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Admin Dashboard
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                {isAdmin ? "Admin Dashboard" : "Product Catalog"}
               </p>
 
             </div>
@@ -251,9 +267,9 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
             NAVIGATION
         ===================================== */}
 
-        <nav className="flex-1 overflow-y-auto px-4 py-5">
+        <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-0.5">
 
-          {menuItems.map((item) => (
+          {visibleItems.map((item) => (
             <NavLink
               key={item.title}
               to={item.path}
@@ -261,48 +277,51 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
               onClick={closeMobileSidebar}
               className={({ isActive }) =>
                 `
+                  relative
                   flex
                   items-center
-                  gap-4
-                  px-4
-                  py-3
-                  mb-2
-                  rounded-xl
+                  gap-3
+                  pl-4
+                  pr-3
+                  py-2.5
+                  rounded-lg
+                  text-[13.5px]
                   font-medium
-                  transition-all
-                  duration-200
+                  transition-colors
+                  duration-150
                   cursor-pointer
 
                   ${
                     isActive
                       ? `
-                        bg-gradient-to-r
-                        from-blue-600
-                        to-indigo-600
-                        text-white
-                        shadow-lg
+                        bg-gray-100
+                        dark:bg-slate-800
+                        text-gray-900
+                        dark:text-white
                       `
                       : `
-                        text-gray-700
-                        dark:text-gray-300
-                        hover:bg-blue-50
-                        dark:hover:bg-slate-800
-                        hover:text-blue-600
-                        dark:hover:text-blue-400
+                        text-gray-500
+                        dark:text-gray-400
+                        hover:bg-gray-50
+                        dark:hover:bg-slate-800/60
+                        hover:text-gray-900
+                        dark:hover:text-gray-200
                       `
                   }
                 `
               }
             >
-
-              <span className="w-6 text-lg flex justify-center">
-                {item.icon}
-              </span>
-
-              <span>
-                {item.title}
-              </span>
-
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-gray-900 dark:bg-white" />
+                  )}
+                  <span className="w-5 text-[15px] flex justify-center">
+                    {item.icon}
+                  </span>
+                  <span>{item.title}</span>
+                </>
+              )}
             </NavLink>
           ))}
 
@@ -328,23 +347,27 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
               w-full
               flex
               items-center
-              justify-center
               gap-3
-              py-3
-              rounded-xl
-              bg-red-500
-              hover:bg-red-600
-              text-white
-              font-semibold
-              shadow-md
-              hover:shadow-lg
-              active:scale-95
-              transition-all
-              duration-200
+              pl-4
+              pr-3
+              py-2.5
+              rounded-lg
+              text-[13.5px]
+              font-medium
+              text-gray-500
+              dark:text-gray-400
+              hover:bg-red-50
+              dark:hover:bg-red-900/20
+              hover:text-red-600
+              dark:hover:text-red-400
+              transition-colors
+              duration-150
               cursor-pointer
             "
           >
-            <FaSignOutAlt />
+            <span className="w-5 text-[15px] flex justify-center">
+              <FaSignOutAlt />
+            </span>
 
             Logout
 

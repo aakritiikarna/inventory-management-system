@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import API from "../api/api";
+import toast from "react-hot-toast";
+import ConfirmModal from "../components/common/ConfirmModal";
 import { motion, AnimatePresence } from "framer-motion";
 
 import {
@@ -10,7 +12,7 @@ import {
   FaTimes,
 } from "react-icons/fa";
 
-const API_URL = "http://localhost:3000/api/suppliers";
+const API_URL = "/suppliers";
 
 const Suppliers = () => {
   const [suppliers, setSuppliers] = useState([]);
@@ -24,6 +26,8 @@ const Suppliers = () => {
   const [editingSupplier, setEditingSupplier] = useState(null);
 
   const [saving, setSaving] = useState(false);
+
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   const [formData, setFormData] = useState({
     supplierName: "",
@@ -41,15 +45,13 @@ const Suppliers = () => {
     try {
       setLoading(true);
 
-      const response = await axios.get(API_URL);
-
-      console.log("SUPPLIERS RESPONSE:", response.data);
+      const response = await API.get(API_URL);
 
       setSuppliers(response.data.suppliers || []);
     } catch (error) {
       console.error("GET SUPPLIERS ERROR:", error);
 
-      alert(
+      toast.error(
         error.response?.data?.message ||
           "Unable to load suppliers"
       );
@@ -62,6 +64,8 @@ const Suppliers = () => {
   // LOAD SUPPLIERS WHEN PAGE OPENS
   // ==========================================
   useEffect(() => {
+    // The fetch manages loading state while its request is in flight.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchSuppliers();
   }, []);
 
@@ -126,7 +130,7 @@ const Suppliers = () => {
       !formData.email.trim() ||
       !formData.category.trim()
     ) {
-      alert("Please fill all required fields.");
+      toast.error("Please fill all required fields.");
       return;
     }
 
@@ -137,17 +141,12 @@ const Suppliers = () => {
       // UPDATE
       // ======================================
       if (editingSupplier) {
-        const response = await axios.put(
+        const response = await API.put(
           `${API_URL}/${editingSupplier._id}`,
           formData
         );
 
-        console.log(
-          "UPDATED SUPPLIER:",
-          response.data
-        );
-
-        alert(
+        toast.success(
           response.data.message ||
             "Supplier updated successfully"
         );
@@ -157,17 +156,12 @@ const Suppliers = () => {
       // ADD
       // ======================================
       else {
-        const response = await axios.post(
+        const response = await API.post(
           API_URL,
           formData
         );
 
-        console.log(
-          "ADDED SUPPLIER:",
-          response.data
-        );
-
-        alert(
+        toast.success(
           response.data.message ||
             "Supplier added successfully"
         );
@@ -195,7 +189,7 @@ const Suppliers = () => {
         error
       );
 
-      alert(
+      toast.error(
         error.response?.data?.message ||
           "Unable to save supplier"
       );
@@ -207,22 +201,14 @@ const Suppliers = () => {
   // ==========================================
   // DELETE SUPPLIER
   // ==========================================
-  const handleDelete = async (id) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this supplier?"
-    );
-
-    if (!confirmed) return;
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
 
     try {
-      const response = await axios.delete(
-        `${API_URL}/${id}`
-      );
+      await API.delete(`${API_URL}/${confirmDelete._id}`);
 
-      alert(
-        response.data.message ||
-          "Supplier deleted successfully"
-      );
+      toast.success("Supplier deleted successfully");
+      setConfirmDelete(null);
 
       // Refresh MongoDB data
       await fetchSuppliers();
@@ -232,7 +218,7 @@ const Suppliers = () => {
         error
       );
 
-      alert(
+      toast.error(
         error.response?.data?.message ||
           "Unable to delete supplier"
       );
@@ -575,9 +561,7 @@ const Suppliers = () => {
                               scale: 0.92,
                             }}
                             onClick={() =>
-                              handleDelete(
-                                supplier._id
-                              )
+                              setConfirmDelete(supplier)
                             }
                             className="
                               bg-red-900/30
@@ -1085,6 +1069,14 @@ const Suppliers = () => {
         )}
 
       </AnimatePresence>
+
+      <ConfirmModal
+        isOpen={!!confirmDelete}
+        title="Delete Supplier"
+        message={`Are you sure you want to delete "${confirmDelete?.supplierName || "this supplier"}"? This cannot be undone.`}
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(null)}
+      />
 
     </div>
   );

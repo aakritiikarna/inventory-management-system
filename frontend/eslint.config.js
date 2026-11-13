@@ -18,4 +18,18 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  {
+    files: ['src/context/*.jsx'],
+    rules: {
+      // Context modules intentionally export both their provider and hook.
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+  {
+    files: ['src/components/common/NepalBranchMap.jsx'],
+    rules: {
+      // The map exports its reusable Leaflet icon alongside the component.
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

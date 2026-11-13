@@ -1,23 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  FaChartLine,
-  FaChartBar,
-  FaChartPie,
   FaDownload,
   FaSyncAlt,
-  FaCalendarAlt,
   FaDollarSign,
   FaShoppingCart,
-  FaUsers,
   FaBoxOpen,
+  FaWarehouse,
 } from "react-icons/fa";
-
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   BarChart,
   Bar,
+  LineChart,
+  Line,
   PieChart,
   Pie,
   Cell,
@@ -28,872 +25,380 @@ import {
   Legend,
 } from "recharts";
 
-import { motion } from "framer-motion";
+import { useDashboard } from "../context/DashboardContext";
+import { useCurrency } from "../context/CurrencyContext";
+import { DEMO_MONTHLY_REVENUE, DEMO_ORDER_STATUS, DEMO_CATEGORY_SALES, DEMO_USER_GROWTH } from "../data/demoData";
+import DemoDataBadge from "../components/common/DemoDataBadge";
+import ErrorBoundary from "../components/common/ErrorBoundary";
+import { getBranchAnalytics } from "../services/branchService";
+import Loader from "../components/common/Loader";
+import EmptyState from "../components/common/EmptyState";
+
+const PIE_COLORS = ["#2563eb", "#f59e0b", "#6366f1", "#10b981", "#ef4444", "#14b8a6"];
+
+const formatDate = (isoDate) =>
+  new Date(isoDate).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+
+
+const toCsv = (rows, headers) => {
+  const escape = (val) => `"${String(val ?? "").replace(/"/g, '""')}"`;
+  const lines = [headers.join(","), ...rows.map((r) => headers.map((h) => escape(r[h])).join(","))];
+  return lines.join("\n");
+};
+
+const downloadCsv = (filename, csv) => {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};
 
 const Reports = () => {
-  const [dateRange, setDateRange] = useState("Last 6 Months");
+  const { formatMoney: currency } = useCurrency();
+  const {
+    stats,
+    revenueTrend,
+    userGrowth,
+    statusCounts,
+    categoryCounts,
+    topProducts,
+    loading,
+    reloadDashboard,
+  } = useDashboard();
+
+  const [branches, setBranches] = useState([]);
+  const [branchesLoading, setBranchesLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // ==========================================
-  // SALES DATA
-  // ==========================================
+  const fetchBranches = async () => {
+    try {
+      setBranchesLoading(true);
+      const { data } = await getBranchAnalytics();
+      setBranches(data.branches || []);
+    } catch (err) {
+      console.error("BRANCH ANALYTICS ERROR:", err);
+    } finally {
+      setBranchesLoading(false);
+    }
+  };
 
-  const salesData = [
-    {
-      month: "Jan",
-      sales: 18500,
-      revenue: 22500,
-    },
-    {
-      month: "Feb",
-      sales: 21000,
-      revenue: 24800,
-    },
-    {
-      month: "Mar",
-      sales: 24500,
-      revenue: 28100,
-    },
-    {
-      month: "Apr",
-      sales: 26800,
-      revenue: 31500,
-    },
-    {
-      month: "May",
-      sales: 29500,
-      revenue: 34200,
-    },
-    {
-      month: "Jun",
-      sales: 32500,
-      revenue: 38200,
-    },
-  ];
+  useEffect(() => {
+    // The fetch manages loading state while its request is in flight.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchBranches();
+  }, []);
 
-  // ==========================================
-  // CATEGORY DATA
-  // ==========================================
-
-  const categoryData = [
-    {
-      name: "Electronics",
-      value: 35,
-    },
-    {
-      name: "Accessories",
-      value: 25,
-    },
-    {
-      name: "Computers",
-      value: 20,
-    },
-    {
-      name: "Office",
-      value: 12,
-    },
-    {
-      name: "Others",
-      value: 8,
-    },
-  ];
-
-  // ==========================================
-  // INVENTORY DATA
-  // ==========================================
-
-  const inventoryData = [
-    {
-      status: "In Stock",
-      products: 382,
-    },
-    {
-      status: "Low Stock",
-      products: 76,
-    },
-    {
-      status: "Out of Stock",
-      products: 24,
-    },
-  ];
-
-  // ==========================================
-  // TOP PRODUCTS
-  // ==========================================
-
-  const topProducts = [
-    {
-      name: "Gaming Laptop",
-      category: "Electronics",
-      units: 128,
-      revenue: "$160,000",
-    },
-    {
-      name: "Wireless Mouse",
-      category: "Accessories",
-      units: 245,
-      revenue: "$11,025",
-    },
-    {
-      name: "Mechanical Keyboard",
-      category: "Accessories",
-      units: 186,
-      revenue: "$22,320",
-    },
-    {
-      name: "Monitor 27 Inch",
-      category: "Electronics",
-      units: 94,
-      revenue: "$30,080",
-    },
-    {
-      name: "USB Hub",
-      category: "Accessories",
-      units: 310,
-      revenue: "$7,750",
-    },
-  ];
-
-  // ==========================================
-  // REFRESH
-  // ==========================================
-
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+    await Promise.all([reloadDashboard(), fetchBranches()]);
+    setRefreshing(false);
   };
 
-  // ==========================================
-  // EXPORT
-  // ==========================================
+  const realRevenueData = revenueTrend.map((p) => ({ label: formatDate(p.date), revenue: p.revenue }));
+  const realStatusData = Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
+  const realCategoryData = Object.entries(categoryCounts).map(([name, products]) => ({ name, products }));
 
-  const handleExport = () => {
-    const reportText = `
-INVENTORY PRO - SALES REPORT
+  const usingDemoRevenue = !loading && realRevenueData.length < 3;
+  const usingDemoStatus = !loading && realStatusData.length === 0;
+  const usingDemoCategory = !loading && realCategoryData.length === 0;
 
-Date Range: ${dateRange}
+  const revenueChartData = usingDemoRevenue ? DEMO_MONTHLY_REVENUE : realRevenueData;
+  const statusChartData = usingDemoStatus
+    ? DEMO_ORDER_STATUS.map((d) => ({ name: d.name, value: d.value }))
+    : realStatusData;
+  const categoryChartData = usingDemoCategory ? DEMO_CATEGORY_SALES : realCategoryData;
 
-Total Revenue: $84,250
-Total Sales: $82,500
-Total Orders: 1,248
-Customers: 326
-Products Sold: 2,846
+  const monthLabel = (ym) => {
+    const [y, m] = ym.split("-");
+    return new Date(Number(y), Number(m) - 1).toLocaleDateString(undefined, { month: "short" });
+  };
+  const realUserGrowth = (userGrowth || []).map((p) => ({ label: monthLabel(p.month), users: p.users }));
+  const usingDemoUserGrowth = !loading && realUserGrowth.length < 3;
+  const userGrowthChartData = usingDemoUserGrowth ? DEMO_USER_GROWTH : realUserGrowth;
 
-TOP PRODUCTS
-
-Gaming Laptop - 128 units - $160,000
-Wireless Mouse - 245 units - $11,025
-Mechanical Keyboard - 186 units - $22,320
-Monitor 27 Inch - 94 units - $30,080
-USB Hub - 310 units - $7,750
-`;
-
-    const blob = new Blob([reportText], {
-      type: "text/plain",
-    });
-
-    const url = URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = "inventory-report.txt";
-
-    document.body.appendChild(link);
-
-    link.click();
-
-    document.body.removeChild(link);
-
-    URL.revokeObjectURL(url);
+  const handleExportBranches = () => {
+    if (branches.length === 0) return;
+    const csv = toCsv(
+      branches.map((b) => ({
+        name: b.name,
+        city: b.city,
+        status: b.status,
+        orders: b.orders,
+        totalStock: b.totalStock,
+        inventoryValue: b.inventoryValue,
+        lowStockCount: b.lowStockCount,
+      })),
+      ["name", "city", "status", "orders", "totalStock", "inventoryValue", "lowStockCount"]
+    );
+    downloadCsv("branch-report.csv", csv);
   };
 
-  // ==========================================
-  // SUMMARY CARDS
-  // ==========================================
-
-  const summaryCards = [
-    {
-      title: "Total Revenue",
-      value: "$84,250",
-      change: "+18.5%",
-      icon: <FaDollarSign />,
-      iconColor: "text-blue-600",
-      iconBg: "bg-blue-100 dark:bg-blue-900/40",
-    },
-    {
-      title: "Total Orders",
-      value: "1,248",
-      change: "+12.4%",
-      icon: <FaShoppingCart />,
-      iconColor: "text-green-600",
-      iconBg: "bg-green-100 dark:bg-green-900/40",
-    },
-    {
-      title: "Customers",
-      value: "326",
-      change: "+24.2%",
-      icon: <FaUsers />,
-      iconColor: "text-purple-600",
-      iconBg: "bg-purple-100 dark:bg-purple-900/40",
-    },
-    {
-      title: "Products Sold",
-      value: "2,846",
-      change: "+15.8%",
-      icon: <FaBoxOpen />,
-      iconColor: "text-orange-600",
-      iconBg: "bg-orange-100 dark:bg-orange-900/40",
-    },
-  ];
+  const handleExportTopProducts = () => {
+    if (topProducts.length === 0) return;
+    const csv = toCsv(
+      topProducts.map((p) => ({
+        productName: p.product?.productName,
+        category: p.product?.category,
+        unitsSold: p.unitsSold,
+      })),
+      ["productName", "category", "unitsSold"]
+    );
+    downloadCsv("top-products.csv", csv);
+  };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="space-y-6"
-    >
-
-      {/* ==========================================
-          HEADER
-      ========================================== */}
-
-      <motion.div
-        initial={{ opacity: 0, y: -25 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5"
-      >
-
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Reports</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Real-time figures computed from your live orders, products, and branches.
+          </p>
+        </div>
 
-          <div className="flex items-center gap-3">
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 transition cursor-pointer disabled:opacity-60"
+        >
+          <FaSyncAlt className={refreshing ? "animate-spin" : ""} size={13} /> Refresh
+        </button>
+      </div>
 
-            <motion.div
-              whileHover={{
-                scale: 1.1,
-                rotate: 5,
-              }}
-              transition={{ duration: 0.25 }}
-              className="w-12 h-12 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-xl"
-            >
-              <FaChartLine size={22} />
-            </motion.div>
-
-            <div>
-
-              <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
-                Reports & Analytics
-              </h1>
-
-              <p className="text-gray-500 dark:text-gray-400 mt-1">
-                Monitor your business performance and inventory insights
-              </p>
-
-            </div>
-
+      {/* SUMMARY STRIP */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: "Total Revenue", value: currency(stats.totalRevenue), icon: <FaDollarSign />, color: "text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400" },
+          { label: "Total Orders", value: stats.totalOrders, icon: <FaShoppingCart />, color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400" },
+          { label: "Inventory Value", value: currency(stats.inventoryValue), icon: <FaWarehouse />, color: "text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 dark:text-indigo-400" },
+          { label: "Products Tracked", value: stats.totalProducts, icon: <FaBoxOpen />, color: "text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400" },
+        ].map((c) => (
+          <div key={c.label} className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-4">
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-2 ${c.color}`}>{c.icon}</div>
+            <p className="text-xl font-bold text-gray-800 dark:text-white">{loading ? "—" : c.value}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{c.label}</p>
           </div>
-
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-
-          {/* DATE RANGE */}
-
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="relative"
-          >
-
-            <FaCalendarAlt className="absolute left-4 top-3.5 text-gray-400" />
-
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="pl-11 pr-5 py-3 rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-700 dark:text-gray-200 outline-none focus:ring-2 focus:ring-blue-500 shadow-md"
-            >
-              <option>Last 7 Days</option>
-              <option>Last 30 Days</option>
-              <option>Last 3 Months</option>
-              <option>Last 6 Months</option>
-              <option>This Year</option>
-            </select>
-
-          </motion.div>
-
-          {/* REFRESH */}
-
-          <motion.button
-            whileHover={{
-              scale: 1.05,
-              y: -2,
-            }}
-            whileTap={{
-              scale: 0.95,
-            }}
-            onClick={handleRefresh}
-            className="flex items-center gap-2 px-4 py-3 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-slate-700 transition shadow-md"
-          >
-
-            <FaSyncAlt
-              className={refreshing ? "animate-spin" : ""}
-            />
-
-            Refresh
-
-          </motion.button>
-
-          {/* EXPORT */}
-
-          <motion.button
-            whileHover={{
-              scale: 1.05,
-              y: -2,
-            }}
-            whileTap={{
-              scale: 0.95,
-            }}
-            onClick={handleExport}
-            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xl transition"
-          >
-
-            <FaDownload />
-
-            Export Report
-
-          </motion.button>
-
-        </div>
-
-      </motion.div>
-
-      {/* ==========================================
-          SUMMARY CARDS
-      ========================================== */}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-
-        {summaryCards.map((card, index) => (
-
-          <motion.div
-            key={card.title}
-            initial={{
-              opacity: 0,
-              y: 30,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            transition={{
-              duration: 0.4,
-              delay: index * 0.1,
-            }}
-            whileHover={{
-              y: -8,
-              scale: 1.02,
-            }}
-            whileTap={{
-              scale: 0.98,
-            }}
-            className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-lg hover:shadow-2xl p-6 cursor-pointer transition-shadow duration-300"
-          >
-
-            <div className="flex items-center justify-between">
-
-              <div>
-
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {card.title}
-                </p>
-
-                <h2 className="text-3xl font-bold text-gray-800 dark:text-white mt-2">
-                  {card.value}
-                </h2>
-
-                <p className="text-green-500 text-sm font-semibold mt-2">
-                  {card.change} this month
-                </p>
-
-              </div>
-
-              <motion.div
-                whileHover={{
-                  rotate: 10,
-                  scale: 1.1,
-                }}
-                className={`w-14 h-14 rounded-xl ${card.iconBg} ${card.iconColor} flex items-center justify-center text-2xl shadow-md`}
-              >
-                {card.icon}
-              </motion.div>
-
-            </div>
-
-          </motion.div>
-
         ))}
-
       </div>
 
-      {/* ==========================================
-          SALES CHART
-      ========================================== */}
-
-      <motion.div
-        initial={{
-          opacity: 0,
-          y: 40,
-        }}
-        animate={{
-          opacity: 1,
-          y: 0,
-        }}
-        transition={{
-          duration: 0.6,
-          delay: 0.4,
-        }}
-        whileHover={{
-          y: -4,
-        }}
-        className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-lg hover:shadow-2xl p-6 transition-shadow duration-300"
-      >
-
-        <div className="flex items-center justify-between mb-6">
-
-          <div>
-
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white">
-              Sales & Revenue Overview
-            </h2>
-
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Monthly business performance
-            </p>
-
+      {/* REVENUE + STATUS */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className="xl:col-span-2 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6">
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-white">Revenue Over Time</h2>
+            {usingDemoRevenue && <DemoDataBadge />}
           </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            {usingDemoRevenue ? "Sample monthly revenue — shown until enough real orders exist." : "Based on orders placed, most recent active days."}
+          </p>
 
-          <motion.div
-            animate={{
-              y: [0, -5, 0],
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-            }}
-            className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 flex items-center justify-center shadow-md"
-          >
-            <FaChartLine />
-          </motion.div>
-
+          {loading ? (
+            <div className="h-[280px] rounded-xl bg-gray-100 dark:bg-slate-800 animate-pulse" />
+          ) : (
+            <ErrorBoundary label="the revenue chart" compact>
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={revenueChartData}>
+                <defs>
+                  <linearGradient id="repRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-slate-800" />
+                <XAxis dataKey="label" tick={{ fontSize: 12 }} stroke="currentColor" className="text-gray-400" />
+                <YAxis tick={{ fontSize: 12 }} stroke="currentColor" className="text-gray-400" />
+                <Tooltip formatter={(v) => [currency(v), "Revenue"]} contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.12)" }} />
+                <Area type="monotone" dataKey="revenue" stroke="#2563eb" strokeWidth={3} fill="url(#repRevenue)" />
+              </AreaChart>
+            </ResponsiveContainer>
+            </ErrorBoundary>
+          )}
         </div>
 
-        <div className="h-[350px]">
-
-          <ResponsiveContainer width="100%" height="100%">
-
-            <LineChart data={salesData}>
-
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="#e5e7eb"
-              />
-
-              <XAxis
-                dataKey="month"
-                stroke="#6b7280"
-              />
-
-              <YAxis
-                stroke="#6b7280"
-              />
-
-              <Tooltip />
-
-              <Legend />
-
-              <Line
-                type="monotone"
-                dataKey="sales"
-                name="Sales"
-                stroke="#2563eb"
-                strokeWidth={3}
-                dot={{
-                  r: 5,
-                }}
-                activeDot={{
-                  r: 8,
-                }}
-                animationDuration={1800}
-              />
-
-              <Line
-                type="monotone"
-                dataKey="revenue"
-                name="Revenue"
-                stroke="#16a34a"
-                strokeWidth={3}
-                dot={{
-                  r: 5,
-                }}
-                activeDot={{
-                  r: 8,
-                }}
-                animationDuration={2200}
-              />
-
-            </LineChart>
-
-          </ResponsiveContainer>
-
-        </div>
-
-      </motion.div>
-
-      {/* ==========================================
-          PIE + BAR
-      ========================================== */}
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-
-        {/* CATEGORY */}
-
-        <motion.div
-          initial={{
-            opacity: 0,
-            x: -40,
-          }}
-          animate={{
-            opacity: 1,
-            x: 0,
-          }}
-          transition={{
-            duration: 0.6,
-            delay: 0.5,
-          }}
-          whileHover={{
-            y: -5,
-          }}
-          className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-lg hover:shadow-2xl p-6 transition-shadow duration-300"
-        >
-
-          <div className="flex items-center justify-between mb-4">
-
-            <div>
-
-              <h2 className="text-xl font-bold text-gray-800 dark:text-white">
-                Sales by Category
-              </h2>
-
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Product category distribution
-              </p>
-
-            </div>
-
-            <motion.div
-              whileHover={{
-                rotate: 15,
-                scale: 1.1,
-              }}
-              className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/40 text-purple-600 flex items-center justify-center shadow-md"
-            >
-              <FaChartPie />
-            </motion.div>
-
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6">
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-white">Orders by Status</h2>
+            {usingDemoStatus && <DemoDataBadge />}
           </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            {usingDemoStatus ? "Sample distribution — no orders recorded yet." : "Distribution of order statuses."}
+          </p>
 
-          <div className="h-[320px]">
-
-            <ResponsiveContainer width="100%" height="100%">
-
+          {loading ? (
+            <div className="h-[220px] rounded-xl bg-gray-100 dark:bg-slate-800 animate-pulse" />
+          ) : (
+            <ErrorBoundary label="the order status chart" compact>
+            <ResponsiveContainer width="100%" height={220}>
               <PieChart>
-
-                <Pie
-                  data={categoryData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={105}
-                  innerRadius={55}
-                  paddingAngle={3}
-                  label
-                  animationBegin={200}
-                  animationDuration={1200}
-                >
-
-                  {categoryData.map((entry, index) => (
-
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={
-                        [
-                          "#2563eb",
-                          "#16a34a",
-                          "#9333ea",
-                          "#f97316",
-                          "#64748b",
-                        ][index]
-                      }
-                    />
-
+                <Pie data={statusChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={80} paddingAngle={3}>
+                  {statusChartData.map((_, i) => (
+                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                   ))}
-
                 </Pie>
-
                 <Tooltip />
-
-                <Legend />
-
+                <Legend wrapperStyle={{ fontSize: 12 }} />
               </PieChart>
-
             </ResponsiveContainer>
-
-          </div>
-
-        </motion.div>
-
-        {/* INVENTORY */}
-
-        <motion.div
-          initial={{
-            opacity: 0,
-            x: 40,
-          }}
-          animate={{
-            opacity: 1,
-            x: 0,
-          }}
-          transition={{
-            duration: 0.6,
-            delay: 0.5,
-          }}
-          whileHover={{
-            y: -5,
-          }}
-          className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-lg hover:shadow-2xl p-6 transition-shadow duration-300"
-        >
-
-          <div className="flex items-center justify-between mb-4">
-
-            <div>
-
-              <h2 className="text-xl font-bold text-gray-800 dark:text-white">
-                Inventory Status
-              </h2>
-
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Current inventory health
-              </p>
-
-            </div>
-
-            <motion.div
-              whileHover={{
-                rotate: -15,
-                scale: 1.1,
-              }}
-              className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/40 text-orange-600 flex items-center justify-center shadow-md"
-            >
-              <FaChartBar />
-            </motion.div>
-
-          </div>
-
-          <div className="h-[320px]">
-
-            <ResponsiveContainer width="100%" height="100%">
-
-              <BarChart data={inventoryData}>
-
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#e5e7eb"
-                />
-
-                <XAxis
-                  dataKey="status"
-                  stroke="#6b7280"
-                />
-
-                <YAxis
-                  stroke="#6b7280"
-                />
-
-                <Tooltip />
-
-                <Bar
-                  dataKey="products"
-                  name="Products"
-                  fill="#2563eb"
-                  radius={[8, 8, 0, 0]}
-                  animationDuration={1500}
-                />
-
-              </BarChart>
-
-            </ResponsiveContainer>
-
-          </div>
-
-        </motion.div>
-
+            </ErrorBoundary>
+          )}
+        </div>
       </div>
 
-      {/* ==========================================
-          TOP PRODUCTS
-      ========================================== */}
+      {/* CATEGORY + TOP PRODUCTS */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6">
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-white">Products by Category</h2>
+            {usingDemoCategory && <DemoDataBadge />}
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            {usingDemoCategory ? "Sample category breakdown — add products to see real data." : "Catalog size across categories."}
+          </p>
 
-      <motion.div
-        initial={{
-          opacity: 0,
-          y: 40,
-        }}
-        animate={{
-          opacity: 1,
-          y: 0,
-        }}
-        transition={{
-          duration: 0.6,
-          delay: 0.7,
-        }}
-        className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-lg overflow-hidden"
-      >
+          {loading ? (
+            <div className="h-[260px] rounded-xl bg-gray-100 dark:bg-slate-800 animate-pulse" />
+          ) : (
+            <ErrorBoundary label="the category chart" compact>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={categoryChartData}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-slate-800" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="currentColor" className="text-gray-400" />
+                <YAxis tick={{ fontSize: 12 }} stroke="currentColor" className="text-gray-400" allowDecimals={false} />
+                <Tooltip contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.12)" }} />
+                <Bar dataKey="products" fill="#6366f1" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+            </ErrorBoundary>
+          )}
+        </div>
 
-        <div className="p-6 border-b border-gray-200 dark:border-slate-700">
-
-          <div className="flex items-center justify-between">
-
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6">
+          <div className="flex items-center justify-between mb-4">
             <div>
-
-              <h2 className="text-xl font-bold text-gray-800 dark:text-white">
-                Top Performing Products
-              </h2>
-
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Best-selling products by units and revenue
-              </p>
-
+              <h2 className="text-lg font-bold text-gray-800 dark:text-white">Top Products</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">By units sold across all orders.</p>
             </div>
-
-            <motion.div
-              whileHover={{
-                scale: 1.1,
-                rotate: 10,
-              }}
-              className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 flex items-center justify-center shadow-md"
+            <button
+              onClick={handleExportTopProducts}
+              disabled={topProducts.length === 0}
+              className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 disabled:opacity-40 cursor-pointer"
             >
-              <FaChartBar />
-            </motion.div>
-
+              <FaDownload size={11} /> CSV
+            </button>
           </div>
 
-        </div>
-
-        <div className="overflow-x-auto">
-
-          <table className="w-full">
-
-            <thead className="bg-gray-50 dark:bg-slate-800">
-
-              <tr>
-
-                <th className="text-left p-4 text-gray-700 dark:text-gray-200">
-                  Product
-                </th>
-
-                <th className="text-left p-4 text-gray-700 dark:text-gray-200">
-                  Category
-                </th>
-
-                <th className="text-left p-4 text-gray-700 dark:text-gray-200">
-                  Units Sold
-                </th>
-
-                <th className="text-left p-4 text-gray-700 dark:text-gray-200">
-                  Revenue
-                </th>
-
-              </tr>
-
-            </thead>
-
-            <tbody>
-
-              {topProducts.map((product, index) => (
-
-                <motion.tr
-                  key={index}
-                  initial={{
-                    opacity: 0,
-                    x: -20,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    x: 0,
-                  }}
-                  transition={{
-                    duration: 0.3,
-                    delay: 0.8 + index * 0.08,
-                  }}
-                  whileHover={{
-                    scale: 1.01,
-                    x: 5,
-                  }}
-                  className="border-t border-gray-200 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-slate-800 transition cursor-pointer"
-                >
-
-                  <td className="p-4">
-
-                    <div className="flex items-center gap-3">
-
-                      <motion.div
-                        whileHover={{
-                          rotate: 10,
-                          scale: 1.1,
-                        }}
-                        className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-600 flex items-center justify-center font-bold shadow-md"
-                      >
-                        {index + 1}
-                      </motion.div>
-
-                      <span className="font-semibold text-gray-800 dark:text-white">
-                        {product.name}
-                      </span>
-
-                    </div>
-
-                  </td>
-
-                  <td className="p-4 text-gray-600 dark:text-gray-300">
-                    {product.category}
-                  </td>
-
-                  <td className="p-4 text-gray-700 dark:text-gray-200 font-semibold">
-                    {product.units}
-                  </td>
-
-                  <td className="p-4 text-green-600 dark:text-green-400 font-bold">
-                    {product.revenue}
-                  </td>
-
-                </motion.tr>
-
+          {loading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-10 rounded-lg bg-gray-100 dark:bg-slate-800 animate-pulse" />)}
+            </div>
+          ) : topProducts.length === 0 ? (
+            <p className="text-sm text-gray-400 dark:text-gray-500">No sales recorded yet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {topProducts.map((p, i) => (
+                <li key={p.product?._id || i} className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-slate-800/60">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-6 h-6 rounded-full bg-gray-200 dark:bg-slate-700 text-gray-600 dark:text-gray-300 text-xs font-semibold flex items-center justify-center flex-shrink-0">{i + 1}</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">{p.product?.productName}</span>
+                  </div>
+                  <span className="text-sm font-semibold text-gray-800 dark:text-white whitespace-nowrap ml-2">{p.unitsSold} sold</span>
+                </li>
               ))}
+            </ul>
+          )}
+        </div>
+      </div>
 
-            </tbody>
+      {/* USER GROWTH */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6">
+        <div className="flex items-center gap-2 mb-1">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-white">User Growth</h2>
+          {usingDemoUserGrowth && <DemoDataBadge />}
+        </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          {usingDemoUserGrowth ? "Sample monthly signups — will switch to real data as more accounts are created." : "New accounts created per month."}
+        </p>
 
-          </table>
+        {loading ? (
+          <div className="h-[240px] rounded-xl bg-gray-100 dark:bg-slate-800 animate-pulse" />
+        ) : (
+          <ErrorBoundary label="the user growth chart" compact>
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={userGrowthChartData}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-slate-800" />
+              <XAxis dataKey="label" tick={{ fontSize: 12 }} stroke="currentColor" className="text-gray-400" />
+              <YAxis tick={{ fontSize: 12 }} stroke="currentColor" className="text-gray-400" allowDecimals={false} />
+              <Tooltip contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.12)" }} />
+              <Line type="monotone" dataKey="users" stroke="#10b981" strokeWidth={3} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+          </ErrorBoundary>
+        )}
+      </div>
 
+      {/* BRANCH PERFORMANCE */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-gray-800 dark:text-white">Branch Performance</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Orders and inventory value by branch (demo data).</p>
+          </div>
+          <button
+            onClick={handleExportBranches}
+            disabled={branches.length === 0}
+            className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 disabled:opacity-40 cursor-pointer"
+          >
+            <FaDownload size={11} /> CSV
+          </button>
         </div>
 
-      </motion.div>
-
-    </motion.div>
+        {branchesLoading ? (
+          <Loader text="Loading branch analytics..." />
+        ) : branches.length === 0 ? (
+          <EmptyState title="No branches yet" description="Add branches from the Branches page to see performance here." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px]">
+              <thead className="bg-gray-50 dark:bg-slate-800/60">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Branch</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Orders</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Stock Units</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Inventory Value</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Low Stock</th>
+                </tr>
+              </thead>
+              <tbody>
+                {branches.map((b) => (
+                  <tr key={b._id} className="border-t border-gray-100 dark:border-slate-800">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-gray-800 dark:text-gray-100">{b.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{b.city}</p>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{b.orders}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{b.totalStock}</td>
+                    <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-100">{currency(b.inventoryValue)}</td>
+                    <td className="px-4 py-3">
+                      {b.lowStockCount > 0 ? (
+                        <span className="text-amber-600 dark:text-amber-400 font-medium">{b.lowStockCount}</span>
+                      ) : (
+                        <span className="text-gray-400 dark:text-gray-500">0</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 

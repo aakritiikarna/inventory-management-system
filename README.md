@@ -1,327 +1,76 @@
 # Inventory Management System
 
-A modern, full-stack Inventory Management System built with **React, Node.js, Express.js, and MongoDB**. The application provides a responsive SaaS-style admin dashboard for managing products, inventory, authentication, and business operations.
+A full-stack inventory dashboard built with React, Vite, Express, and MongoDB. It includes JWT authentication, role-based access, product and stock management, branches/warehouses, suppliers, orders, reports, image uploads, and responsive dashboard pages.
 
-## 🚀 Features
+## Requirements
 
-* 🔐 JWT-based authentication
-* 👤 Secure user authentication with bcrypt
-* 📦 Product and inventory management
-* 📊 Interactive admin dashboard
-* 📈 Sales and inventory analytics
-* 🔍 Search and filtering
-* 📝 Form validation
-* 🖼️ Product image upload
-* 🔔 Toast notifications
-* 📱 Responsive design
-* 🗂️ RESTful API architecture
-* 🛡️ Protected routes
-* 💾 MongoDB database integration
-* ⚡ Fast Vite development environment
-* 🎨 Modern SaaS-style UI
+- Node.js 20.6 or newer (the server uses Node's `--env-file` option)
+- npm
+- MongoDB, local or hosted
 
-## 🛠️ Tech Stack
-
-### Frontend
-
-* React 19
-* Vite
-* Tailwind CSS
-* React Router DOM
-* Axios
-* React Icons
-* Framer Motion
-* Recharts
-* React Hot Toast
-* React Hook Form
-* Context API
+## Setup
 
 ### Backend
 
-* Node.js
-* Express.js
-* MongoDB
-* Mongoose
-* JWT
-* bcrypt
-* Multer
-* dotenv
-* CORS
-
-## 📁 Project Structure
-
-```text
-inventory-management-system/
-│
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── context/
-│   │   ├── services/
-│   │   ├── assets/
-│   │   └── App.jsx
-│   ├── package.json
-│   └── vite.config.js
-│
-├── backend/
-│   ├── controllers/
-│   ├── models/
-│   ├── routes/
-│   ├── middleware/
-│   ├── config/
-│   ├── uploads/
-│   ├── seed.js
-│   ├── index.js
-│   └── package.json
-│
-├── .gitignore
-└── README.md
+```powershell
+cd server
+npm ci
+Copy-Item .env.example .env
 ```
 
-## 🔐 Authentication
+Set `MONGO_URI` and a long, unique `JWT_SECRET` in `server/.env`. Set `CORS_ORIGINS` to the exact browser origin(s) that will use the API, comma-separated. The development server also allows Vite's `localhost` and `127.0.0.1` ports `5170`–`5179`.
 
-The application uses JWT-based authentication.
+Start the API:
 
-Authentication flow:
-
-```text
-User Login
-    ↓
-Frontend sends credentials
-    ↓
-Express API
-    ↓
-Credentials validated
-    ↓
-JWT token generated
-    ↓
-Token stored by frontend
-    ↓
-Protected dashboard access
-```
-
-Passwords are securely hashed using **bcrypt** before being stored in the database.
-
-## 🗄️ Database
-
-The application uses **MongoDB** with **Mongoose** for database management.
-
-The database stores application data such as:
-
-* Users
-* Products
-* Inventory information
-* Other application-related records
-
-## ⚙️ Getting Started
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/aakritiikarna/inventory-management-system.git
-```
-
-### 2. Navigate into the project
-
-```bash
-cd inventory-management-system
-```
-
-## 🔧 Backend Setup
-
-Navigate to the backend directory:
-
-```bash
-cd backend
-```
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-Create a `.env` file:
-
-```env
-PORT=3000
-MONGO_URI=mongodb://127.0.0.1:27017/pos-db
-JWT_SECRET=your_jwt_secret
-```
-
-Start the backend server:
-
-```bash
+```powershell
 npm run dev
 ```
 
-The backend will run on:
+It listens on `http://localhost:3000` by default. `GET /` reports API status; `GET /api/test-db` checks the MongoDB connection.
 
-```text
-http://localhost:3000
+To create an administrator, set `ADMIN_EMAIL` and a unique `ADMIN_PASSWORD` in `server/.env`, then run:
+
+```powershell
+npm run create-admin
 ```
 
-## 💻 Frontend Setup
+To load the optional sample branches, products, orders, and administrator into an empty database, set the same administrator values and run `npm run seed`. Sample staff/customer users are created only when `DEMO_STAFF_PASSWORD` and/or `DEMO_CUSTOMER_PASSWORD` are set. Seeding does not update existing records, but it does add sample data; do not run it against a production database unless that is intended.
 
-Open another terminal and navigate to the frontend:
+### Frontend
 
-```bash
+In another terminal:
+
+```powershell
 cd frontend
-```
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-Start the development server:
-
-```bash
+npm ci
+Copy-Item .env.example .env.local
 npm run dev
 ```
 
-The frontend will normally run on:
+`VITE_API_URL` defaults to `http://localhost:3000/api`; set it in `frontend/.env.local` when the API is hosted elsewhere. Start the frontend at the origin listed in `CORS_ORIGINS` for non-local development.
 
-```text
-http://localhost:5173
-```
+## Features
 
-## 🔑 Environment Variables
+- JWT sign-in with admin, staff, and customer roles
+- Server-enforced authorization for private inventory, order, user, supplier, and branch operations
+- Product catalog and image uploads, categories, suppliers, and stock adjustment
+- Branch/warehouse inventory, shipment views, low-stock indicators, and analytics
+- Dashboard metrics, charts, report exports, order management, and profile settings
+- Responsive layout, theme selection, and currency display preferences
 
-Never commit your `.env` file to GitHub.
+The admin dashboard is shared across authenticated roles; restricted data and controls are enforced by the API and role-protected routes. Seeded sample accounts are optional and use the passwords configured in `.env`, not fixed credentials.
 
-Example backend environment variables:
+## Checks
 
-```env
-PORT=3000
-MONGO_URI=your_mongodb_connection_string
-JWT_SECRET=your_secret_key
-```
-
-Make sure `.env` is included in `.gitignore`.
-
-## 🔄 Application Architecture
-
-```text
-                    ┌─────────────────────┐
-                    │      React UI       │
-                    │      Frontend       │
-                    └──────────┬──────────┘
-                               │
-                             Axios
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │    Express.js API   │
-                    │      Backend        │
-                    └──────────┬──────────┘
-                               │
-                    ┌──────────┴──────────┐
-                    │                     │
-                    ▼                     ▼
-              Authentication         Business Logic
-                    │                     │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │      MongoDB        │
-                    │      Database       │
-                    └─────────────────────┘
-```
-
-## 📊 Dashboard
-
-The admin dashboard provides a centralized interface for monitoring and managing inventory-related operations.
-
-It is designed with a modern SaaS dashboard approach and focuses on:
-
-* Clear data visualization
-* Responsive layouts
-* Easy navigation
-* Reusable components
-* Interactive charts
-* Efficient inventory management
-
-## 🧪 Development
-
-Frontend:
-
-```bash
+```powershell
 cd frontend
-npm run dev
-```
-
-Backend:
-
-```bash
-cd backend
-npm run dev
-```
-
-Build the frontend:
-
-```bash
-cd frontend
+npm run lint
 npm run build
 ```
 
-## 🔒 Security Considerations
-
-The project follows several common security practices:
-
-* Password hashing with bcrypt
-* JWT authentication
-* Protected API routes
-* Environment variables for sensitive configuration
-* CORS configuration
-* Input validation
-* Sensitive files excluded through `.gitignore`
-
-## 🚧 Future Improvements
-
-Possible future enhancements include:
-
-* Role-based access control
-* Advanced sales management
-* Purchase and supplier management
-* Low-stock notifications
-* Export reports to PDF/Excel
-* Advanced analytics
-* Cloud image storage
-* Automated testing
-* Docker support
-* Production deployment
-* CI/CD pipeline
-
-## 📸 Screenshots
-
-Screenshots of the dashboard and major application pages can be added here.
-
-```text
-Add project screenshots here
+```powershell
+cd server
+npm run test:rbac
 ```
 
-## 🌐 Live Demo
-
-Coming soon.
-
-## 📌 Project Status
-
-**Portfolio Project — Actively maintained**
-
-The project is being developed with a focus on modern full-stack development practices, responsive UI design, RESTful APIs, authentication, database integration, and production-oriented architecture.
-
-## 👩‍💻 Author
-
-**Aakriti Karna**
-
-GitHub:
-https://github.com/aakritiikarna
-
-## ⭐ Support
-
-If you find this project useful or interesting, consider giving the repository a ⭐ on GitHub.
+Uploaded images and environment files are local runtime data and are excluded from Git. Never commit real credentials or production uploads.

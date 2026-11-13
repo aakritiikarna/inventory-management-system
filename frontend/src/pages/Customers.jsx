@@ -12,6 +12,8 @@ import {
 } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 
+let nextCustomerId = Date.now();
+
 const Customers = () => {
   const [search, setSearch] = useState("");
 
@@ -198,7 +200,7 @@ const Customers = () => {
     // ADD
     else {
       const newCustomer = {
-        id: Date.now(),
+        id: nextCustomerId++,
         ...formData,
         orders: Number(formData.orders),
       };

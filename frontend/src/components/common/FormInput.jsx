@@ -11,7 +11,7 @@ const FormInput = ({
   return (
     <div className="space-y-2">
 
-      <label className="block text-sm font-semibold text-gray-700">
+      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
         {label}
 
         {required && (
@@ -33,10 +33,11 @@ const FormInput = ({
           py-3
           outline-none
           transition
+          bg-white dark:bg-slate-900 text-gray-800 dark:text-gray-100
           ${
             error
               ? "border-red-500"
-              : "border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              : "border-gray-300 dark:border-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40"
           }
         `}
       />

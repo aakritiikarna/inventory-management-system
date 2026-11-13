@@ -1,6 +1,12 @@
 import jsPDF from "jspdf";
 
-const generateInvoice = (order) => {
+// Plain utility (not a component), so it can't call useCurrency() itself —
+// the caller passes in formatMoney from the current currency context.
+// Falls back to a plain USD formatter if none is given, so this still
+// works if called from somewhere outside that context.
+const defaultFormatMoney = (amount) => `$${Number(amount || 0).toFixed(2)}`;
+
+const generateInvoice = (order, formatMoney = defaultFormatMoney) => {
   const doc = new jsPDF();
 
   // =========================
@@ -71,6 +77,14 @@ const generateInvoice = (order) => {
     73
   );
 
+  if (order.branch) {
+    doc.text(
+      `Branch: ${order.branch}`,
+      15,
+      80
+    );
+  }
+
   // =========================
   // CUSTOMER
   // =========================
@@ -106,6 +120,15 @@ const generateInvoice = (order) => {
       order.customerPhone,
       116,
       70
+    );
+  }
+
+  if (order.customerAddress) {
+    doc.setFontSize(9);
+    doc.text(
+      doc.splitTextToSize(order.customerAddress, 75),
+      116,
+      76
     );
   }
 
@@ -154,7 +177,7 @@ const generateInvoice = (order) => {
     doc.setFont("helvetica", "normal");
 
     doc.text(
-      String(item.name || "Product"),
+      item.sku ? `${item.name || "Product"} (${item.sku})` : String(item.name || "Product"),
       20,
       y + 7
     );
@@ -166,13 +189,13 @@ const generateInvoice = (order) => {
     );
 
     doc.text(
-      `$${price.toFixed(2)}`,
+      formatMoney(price),
       130,
       y + 7
     );
 
     doc.text(
-      `$${total.toFixed(2)}`,
+      formatMoney(total),
       165,
       y + 7
     );
@@ -205,7 +228,7 @@ const generateInvoice = (order) => {
 
   doc.setTextColor(...darkColor);
   doc.text(
-    `$${subtotal.toFixed(2)}`,
+    formatMoney(subtotal),
     165,
     y
   );
@@ -221,7 +244,7 @@ const generateInvoice = (order) => {
 
   doc.setTextColor(...darkColor);
   doc.text(
-    `$${tax.toFixed(2)}`,
+    formatMoney(tax),
     165,
     y
   );
@@ -233,7 +256,7 @@ const generateInvoice = (order) => {
 
   doc.setTextColor(...darkColor);
   doc.text(
-    `-$${discount.toFixed(2)}`,
+    `-${formatMoney(discount)}`,
     165,
     y
   );
@@ -250,7 +273,7 @@ const generateInvoice = (order) => {
   doc.text("TOTAL:", 130, y + 4);
 
   doc.text(
-    `$${grandTotal.toFixed(2)}`,
+    formatMoney(grandTotal),
     165,
     y + 4
   );

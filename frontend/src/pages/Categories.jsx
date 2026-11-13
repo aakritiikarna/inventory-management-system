@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import API from "../api/api";
+import toast from "react-hot-toast";
+import ConfirmModal from "../components/common/ConfirmModal";
 import {
   FaPlus,
   FaSearch,
@@ -9,7 +11,7 @@ import {
   FaTag,
 } from "react-icons/fa";
 
-const API_URL = "http://localhost:3000/api/categories";
+const API_URL = "/categories";
 
 const Categories = () => {
   const [categories, setCategories] = useState([]);
@@ -32,6 +34,8 @@ const Categories = () => {
 
   const [saving, setSaving] = useState(false);
 
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
   // =========================================================
   // GET CATEGORIES
   // =========================================================
@@ -43,15 +47,13 @@ const Categories = () => {
 
       const token = localStorage.getItem("pos-token");
 
-      const response = await axios.get(API_URL, {
+      const response = await API.get(API_URL, {
         headers: token
           ? {
               Authorization: `Bearer ${token}`,
             }
           : {},
       });
-
-      console.log("CATEGORY API RESPONSE:", response.data);
 
       /*
         Backend may return:
@@ -104,6 +106,8 @@ const Categories = () => {
   // =========================================================
 
   useEffect(() => {
+    // The fetch manages loading state while its request is in flight.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchCategories();
   }, []);
 
@@ -185,7 +189,7 @@ const Categories = () => {
     e.preventDefault();
 
     if (!formData.name.trim()) {
-      alert("Please enter a category name.");
+      toast.error("Please enter a category name.");
       return;
     }
 
@@ -209,23 +213,23 @@ const Categories = () => {
           editingCategory._id ||
           editingCategory.id;
 
-        await axios.put(
+        await API.put(
           `${API_URL}/${id}`,
           formData,
           config
         );
 
-        alert("Category updated successfully.");
+        toast.success("Category updated successfully.");
       } else {
         // CREATE
 
-        await axios.post(
+        await API.post(
           API_URL,
           formData,
           config
         );
 
-        alert("Category added successfully.");
+        toast.success("Category added successfully.");
       }
 
       closeModal();
@@ -234,7 +238,7 @@ const Categories = () => {
     } catch (err) {
       console.error("SAVE CATEGORY ERROR:", err);
 
-      alert(
+      toast.error(
         err.response?.data?.message ||
           "Unable to save category."
       );
@@ -247,27 +251,15 @@ const Categories = () => {
   // DELETE
   // =========================================================
 
-  const handleDelete = async (category) => {
-    const id =
-      category._id ||
-      category.id;
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
 
-    const categoryName =
-      category.name ||
-      category.categoryName ||
-      category.title ||
-      "this category";
-
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${categoryName}"?`
-    );
-
-    if (!confirmed) return;
+    const id = confirmDelete._id || confirmDelete.id;
 
     try {
       const token = localStorage.getItem("pos-token");
 
-      await axios.delete(
+      await API.delete(
         `${API_URL}/${id}`,
         {
           headers: token
@@ -278,13 +270,14 @@ const Categories = () => {
         }
       );
 
-      alert("Category deleted successfully.");
+      toast.success("Category deleted successfully.");
+      setConfirmDelete(null);
 
       await fetchCategories();
     } catch (err) {
       console.error("DELETE CATEGORY ERROR:", err);
 
-      alert(
+      toast.error(
         err.response?.data?.message ||
           "Unable to delete category."
       );
@@ -755,9 +748,7 @@ const Categories = () => {
                             <button
                               type="button"
                               onClick={() =>
-                                handleDelete(
-                                  category
-                                )
+                                setConfirmDelete(category)
                               }
                               className="
                                 w-11
@@ -1045,6 +1036,14 @@ const Categories = () => {
 
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!confirmDelete}
+        title="Delete Category"
+        message={`Are you sure you want to delete "${confirmDelete?.name || confirmDelete?.categoryName || "this category"}"? This cannot be undone.`}
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(null)}
+      />
 
     </div>
   );
